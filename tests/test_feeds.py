@@ -60,7 +60,7 @@ async def test_github_list_baseline_then_new_listing_is_pushed(conn, settings, c
         s2 = await r.run_once()
     assert route.calls[0].request.headers["if-none-match"] == '"e1"'
     assert s2.leads == 2 and [j.id for j, _ in s2.relevant] == [f"ashby:quora:{U1}"]
-    assert pushed == [(f"ashby:quora:{U1}", "new-grad tech role, US · via Simplify")]
+    assert [j for j, _ in pushed] == [f"ashby:quora:{U1}"] and pushed[0][1].endswith(" · via Simplify")
     dropped = conn.execute("SELECT relevant, reason FROM jobs WHERE ext_id='12'").fetchone()
     assert tuple(dropped) == (0, "requires US citizenship")
     q = conn.execute(f"SELECT apply_url, source, notified_at FROM jobs WHERE id='ashby:quora:{U1}'").fetchone()

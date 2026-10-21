@@ -9,10 +9,51 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 | 0 | Scaffold, config, SQLite, CLI, profile/answers templates | ✅ Done (2026-10-20) |
 | 1 | Greenhouse/Lever/Ashby sources, tiered poller, seeding, alerts, launchd agent | ✅ Done (2026-10-20); agent installed and running |
 | 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
-| 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | Planned |
+| 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21): filters, signals, score; 3b (resume-variant fit, batch tailoring) next |
 | 4 | Playwright autofill, approve → submit, confirmation detection | Planned |
 | 5 | Phone dashboard, tracker, Workday adapter | Planned |
 | 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-21: First commit; Phase 3a description screening and ranking
+
+**Commit:** `d5721d4`, Phases 0–2 (56 files). Before it, `profile/profile.example.yaml` still held real
+contact details; it now has placeholders (the real copy lives in `~/.applypilot/profile.yaml`).
+
+**Built:**
+- `filters.py` (`assess`): clause-and-section reading of a description. Hard drops: citizenship /
+  green card, clearance, U.S. persons (ITAR), OPT training / bench-sales scheme, 4+ years required.
+  Sponsorship stance, "now or in the future" wording and E-Verify are signals only. See docs/02 §2.10.
+- `rank.py`: `score` (0–100: freshness, new grad, visa outlook incl. H-1B history, E-Verify, apply path,
+  knockout penalties) and `screen` (stores `score, sponsorship, everify, flags, screened_at`; a hard
+  drop sets `relevant=0`).
+- Wired in before every push: poller, feed jobs, and known baseline jobs a feed resurfaces (which also
+  fetch the Greenhouse description first). Push line, e.g. `… · score 64 · no sponsorship: OPT/STEM OPT
+  path · E-Verify · via Simplify`.
+- Title-level clearance drop in `relevance.py` (seen in Indeed alerts: "Cleared Software Engineer").
+- CLI: `screen [--fetch-days N] [--all]` (re-judges titles too), `jobs --by-score` (score + visa columns),
+  `stats` (screening counts; latency by board polls vs feeds).
+
+**Eval (tests/fixtures/jd_eval.jsonl, 73 excerpts):**
+- 70 live postings sampled across categories with a fresh seed, plus 3 synthetic (two Arya-style scams
+  and a legitimate "STEM OPT program welcome" near miss). Labeled from the key passages before
+  running the filter.
+- First run 30/35 recall, 0 false drops (B-014); after fixes **35/35, 0/38 false drops, 0/12
+  no-sponsorship keeps dropped**. Sponsorship stance matches on 72/73 (L-21).
+- Held-out spot checks: 40 random drops all correct; 30 keyword-bearing keeps → 1 miss, fixed (B-015).
+
+**Backfill (2026-10-21):**
+- `screen --fetch-days 14` fetched 279 Greenhouse descriptions and screened 2,601 jobs in 17 s:
+  1,744 kept, 857 hard drops.
+  - Clearance 332: Wyetech 135, Palantir 52, Accenture Federal 25, CGS Federal 20, Anduril 15.
+  - 4+ years 362; citizenship 131; ITAR 30.
+  - Scam 2, of which one false (B-016, fixed) and one real: **Arya Groups**, the company that was in the
+    user's Indeed alerts.
+- 72 stale title verdicts demoted (B-018).
+- Latency: board polls p50 1.5 min, p95 2.5 min (n=5); feeds p50 29.8 min (n=6); 2 re-listed/late
+  jobs not counted (B-017).
+- 116 tests passing (+25), ruff clean.
 
 ---
 

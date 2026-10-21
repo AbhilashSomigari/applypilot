@@ -481,22 +481,90 @@ def resolve_cmd(
                       f"\n  apply: {hit['apply_url'] or hit['url']}")
 
 
+_VISA = {"offers": "sponsors", "no": "OPT path", "unknown": ""}
+
+
 @app.command()
-def jobs(hours: float = 24.0, fresh: bool = False, limit: int = 50) -> None:
-    """Relevant jobs detected in the last N hours (--fresh: posted in the last N hours, incl. first scans)."""
+def jobs(hours: float = 24.0, fresh: bool = False, limit: int = 50, by_score: bool = False) -> None:
+    """Relevant jobs detected in the last N hours (--fresh: posted in the last N hours, incl. first scans;
+    --by-score: highest priority first)."""
     since = time.time() - hours * 3600
     col = "posted_at" if fresh else "detected_at"
+    order = "score DESC NULLS LAST, posted_at DESC" if by_score else f"{col} DESC"
     rows = _conn().execute(
-        f"SELECT company, title, location, posted_at, detected_at, reason, apply_url, url, source FROM jobs"
-        f" WHERE relevant=1 AND closed_at IS NULL AND {col} >= ? ORDER BY {col} DESC LIMIT ?",
+        f"SELECT company, title, location, posted_at, detected_at, reason, apply_url, url, source, score,"
+        f" sponsorship, everify FROM jobs WHERE relevant=1 AND closed_at IS NULL AND {col} >= ? ORDER BY {order}"
+        f" LIMIT ?",
         (since, limit),
     ).fetchall()
-    t = Table("posted", "company", "title", "location", "why", "via", "apply")
+    t = Table("score", "posted", "company", "title", "location", "visa", "via", "apply")
     for r in rows:
-        t.add_row(notify.age(r["posted_at"]).removeprefix("posted "), r["company"], r["title"],
-                  r["location"][:30], r["reason"].split(" · via ")[0], r["source"].removeprefix("github:"),
+        visa = " · ".join(x for x in (_VISA.get(r["sponsorship"] or "unknown", ""), "E-Verify" if r["everify"] else "")
+                          if x)
+        t.add_row("" if r["score"] is None else f"{r['score']:.0f}", notify.age(r["posted_at"]).removeprefix("posted "),
+                  r["company"], r["title"], r["location"][:30], visa, r["source"].removeprefix("github:"),
                   r["apply_url"] or r["url"])
     console.print(t)
+
+
+@app.command("screen")
+def screen_cmd(all_jobs: bool = typer.Option(False, "--all", help="re-screen jobs screened before"),
+               fetch_days: float = typer.Option(0, help="first fetch missing ATS descriptions for open relevant "
+                                                        "jobs posted in the last N days")) -> None:
+    """Run the description filters over stored relevant jobs: hard drops, visa signals, priority score."""
+    import collections
+
+    from applypilot import rank
+    from applypilot.sources import SOURCES
+
+    _setup_logging()
+    conn = _conn()
+    if fetch_days:
+        todo = [db.row_job(r) for r in conn.execute(
+            "SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL AND description='' AND posted_at >= ?",
+            (time.time() - fetch_days * 86400,)).fetchall() if r["ats"] in SOURCES]
+
+        async def go():
+            sem = asyncio.Semaphore(6)
+            async with make_client(get_settings()) as client:
+                async def one(j):
+                    async with sem:
+                        try:
+                            await SOURCES[j.ats].details(client, j)
+                            db.set_description(conn, j.id, j.description)
+                        except (httpx.HTTPError, ValueError):
+                            pass
+                await asyncio.gather(*(one(j) for j in todo))
+
+        with console.status(f"fetching {len(todo)} descriptions"):
+            asyncio.run(go())
+    from applypilot.relevance import judge
+
+    # titles judged under older rules (e.g. before the clearance-title drop) are re-checked first
+    retitled = 0
+    for r in conn.execute("SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL").fetchall():
+        v = judge(db.row_job(r))
+        if not v.relevant:
+            db.set_relevance(conn, r["id"], False, v.reason)
+            retitled += 1
+    if retitled:
+        console.print(f"{retitled} jobs no longer pass the title/location gate")
+    where = "" if all_jobs else " AND screened_at IS NULL"
+    rows = conn.execute(f"SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL AND description != ''{where}"
+                        ).fetchall()
+    drops: collections.Counter = collections.Counter()
+    now = time.time()
+    for r in rows:
+        keep, _ = rank.screen(conn, db.row_job(r), now)
+        if not keep:
+            drops[db.get_job(conn, r["id"])["reason"].removeprefix("hard drop: ")] += 1
+    console.print(f"screened {len(rows)} jobs: kept {len(rows) - sum(drops.values())}, hard drops "
+                  f"{sum(drops.values())}")
+    for reason, n in drops.most_common():
+        console.print(f"  {n:5}  {reason}")
+    left = conn.execute("SELECT COUNT(*) FROM jobs WHERE relevant=1 AND closed_at IS NULL AND description=''"
+                        ).fetchone()[0]
+    console.print(f"{left} relevant open jobs have no description yet (use --fetch-days for ATS ones)")
 
 
 @app.command()
@@ -510,18 +578,31 @@ def stats() -> None:
     by_ats = dict(conn.execute("SELECT ats, COUNT(*) FROM boards WHERE tier!='dead' GROUP BY ats").fetchall())
     open_jobs, relevant = conn.execute(
         "SELECT COUNT(*), SUM(relevant=1) FROM jobs WHERE closed_at IS NULL").fetchone()
-    lat = [r[0] / 60 for r in conn.execute(
-        "SELECT detected_at - posted_at FROM jobs WHERE is_baseline=0 AND relevant=1"
-        " AND posted_at IS NOT NULL AND detected_at >= unixepoch() - 7*86400").fetchall()]
+    # board polls and feeds measure different things (our polling vs. how late a list or alert adds a job);
+    # a job first published > 48 h before we saw it was re-listed or added late, not posted just now
+    lags = conn.execute(
+        "SELECT source = 'ats', (detected_at - posted_at) / 60 FROM jobs WHERE is_baseline=0 AND relevant=1"
+        " AND posted_at IS NOT NULL AND detected_at >= unixepoch() - 7*86400").fetchall()
+    late = sum(1 for _, m in lags if m > 48 * 60)
+    lat = sorted(m for ats, m in lags if ats and m <= 48 * 60)
+    feed_lat = sorted(m for ats, m in lags if not ats and m <= 48 * 60)
     console.print(f"boards by tier: {tiers}\nboards by ATS: {by_ats}\nboards by source: {by_source}\n"
                   f"open jobs: {open_jobs} (relevant {relevant})\nrelevant open jobs by first source: {jobs_by_source}")
-    if lat:
-        lat.sort()
-        p95 = lat[min(len(lat) - 1, int(0.95 * len(lat)))]
-        console.print(f"detection latency, last 7 d (n={len(lat)}): p50 {statistics.median(lat):.1f} min, "
-                      f"p95 {p95:.1f} min")
-    else:
-        console.print("detection latency: no new (post-baseline) relevant jobs yet")
+    dropped = conn.execute("SELECT COUNT(*) FROM jobs WHERE reason LIKE 'hard drop:%' AND closed_at IS NULL"
+                           ).fetchone()[0]
+    screened = conn.execute("SELECT COUNT(*) FROM jobs WHERE relevant=1 AND closed_at IS NULL AND screened_at"
+                            " IS NOT NULL").fetchone()[0]
+    console.print(f"description screening: {screened} relevant jobs screened, {dropped} open jobs hard-dropped")
+    for name, xs in (("board polls", lat), ("feeds", feed_lat)):
+        if xs:
+            p95 = xs[min(len(xs) - 1, int(0.95 * len(xs)))]
+            console.print(f"detection latency via {name}, last 7 d (n={len(xs)}): p50 "
+                          f"{statistics.median(xs):.1f} min, p95 {p95:.1f} min")
+        else:
+            console.print(f"detection latency via {name}: no new (post-baseline) relevant jobs yet")
+    if late:
+        console.print(f"  (not counted: {late} jobs first published > 48 h before we saw them: re-listed or "
+                      f"added late)")
 
 
 @app.command()

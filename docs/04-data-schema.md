@@ -116,10 +116,15 @@ Index: `boards_due (next_poll) WHERE tier NOT IN ('dead','blocked')`.
 | `detected_at` | REAL | When ApplyPilot first saw it. **Detection latency = `detected_at − posted_at`** for non-baseline jobs. |
 | `is_baseline` | INTEGER 0/1 | 1 = seen on the board's first scan (not "new") |
 | `relevant` | INTEGER, null | 1/0 from the relevance gate; null = not evaluated |
-| `reason` | TEXT | Verdict text, e.g. `new-grad tech role, US`, `senior/lead/manager title` |
+| `reason` | TEXT | Verdict text, e.g. `new-grad tech role, US`, `senior/lead/manager title`, `hard drop: requires security clearance` |
 | `notified_at` | REAL, null | When the push was sent |
 | `closed_at` | REAL, null | When it disappeared from the board; cleared if it reappears. Feed-only jobs (non-pollable ATS) are never closed yet. |
 | `source` | TEXT | `ats` (found by a board poll) or the feed that found it **first**. Added by migration. |
+| `score` | REAL, null | Priority 0–100 from `rank.score` (null = not screened: no description yet) |
+| `sponsorship` | TEXT, null | `offers` / `no` / `unknown`, read from the description |
+| `everify` | INTEGER 0/1, null | Description mentions E-Verify |
+| `flags` | TEXT (JSON list), null | Soft knockouts: `3+ years required`, `PhD required`, `contract (C2C/1099)`, `clearance preferred`, `citizenship preferred`, `export-control mention` |
+| `screened_at` | REAL, null | When `rank.screen` last ran. A hard drop sets `relevant=0` and `reason='hard drop: …'`. |
 | `raw` | TEXT (JSON) | ATS payload minus bulky HTML; for feed jobs, the feed row (Simplify: sponsorship, degrees, category) |
 
 Indexes: `jobs_board (ats, slug) WHERE closed_at IS NULL` and `jobs_new (detected_at) WHERE relevant = 1`.

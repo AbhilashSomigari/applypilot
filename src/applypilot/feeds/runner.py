@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from applypilot import db, gmail, notify, resolver
+from applypilot import db, gmail, notify, rank, resolver
 from applypilot.config import Settings
 from applypilot.feeds.base import Feed, Lead
 from applypilot.feeds.email_alerts import PARSERS, EmailAlerts
@@ -49,11 +49,6 @@ def default_feeds(settings: Settings) -> list[Feed]:
     if f.gmail and gmail.token_info():
         feeds += [EmailAlerts(site, settings) for site in PARSERS]
     return feeds
-
-
-def _row_job(r: sqlite3.Row) -> Job:
-    return Job(r["ats"], r["slug"], r["ext_id"], r["title"], r["company"], r["location"], r["country"],
-               bool(r["remote"]), r["url"], r["apply_url"], r["description"], r["posted_at"], r["source"])
 
 
 @dataclass
@@ -206,7 +201,10 @@ class FeedRunner:
                 db.set_description(self.conn, job.id, job.description)
             except (httpx.HTTPError, ValueError):
                 pass
-        reason = f"{v.reason} · via {feed.label}"
+        keep, signals = rank.screen(self.conn, job, now)
+        if not keep:
+            return job.id  # hard drop from the description (citizenship, clearance, ITAR, scam, 4+ years)
+        reason = f"{v.reason}{f' · {signals}' if signals else ''} · via {feed.label}"
         if baseline:
             if job.posted_at and job.posted_at >= now - self.settings.fresh_hours * 3600:
                 stats.fresh_baseline.append((job, reason))
@@ -225,7 +223,17 @@ class FeedRunner:
             return row["id"]
         # only seen on a silent baseline so far: push it now (marked first, so no second lead re-pushes)
         db.mark_notified(self.conn, [row["id"]], time.time())
-        job, reason = _row_job(row), f"{row['reason']} · via {feed.label}"
+        job = db.row_job(row)
+        if not job.description and job.ats in SOURCES:
+            try:  # Greenhouse baseline jobs were stored without one
+                await SOURCES[job.ats].details(self.client, job)
+                db.set_description(self.conn, job.id, job.description)
+            except (httpx.HTTPError, ValueError):
+                pass
+        keep, signals = rank.screen(self.conn, job)
+        if not keep:
+            return row["id"]
+        reason = f"{row['reason']}{f' · {signals}' if signals else ''} · via {feed.label}"
         stats.relevant.append((job, reason))
         if self.push:
             await notify.push(self.client, self.settings, job, reason)

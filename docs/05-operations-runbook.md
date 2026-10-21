@@ -1,6 +1,6 @@
 # 5. Operations runbook
 
-_Reflects: Phase 2, part 1 (2026-10-20)._
+_Reflects: Phase 3a (2026-10-21)._
 
 > **Always `export PYTHONPATH=src` first** (or use `make`). On this Mac, uv marks `.venv` hidden and
 > Python 3.12.13 skips hidden `.pth` files, so the editable install is invisible (bug B-005).
@@ -102,6 +102,18 @@ the search terms are spelled right.
 
 Never paste the client JSON, the token, or sample emails into chat or the repo. Scrub names, email
 addresses and tracking links before a sample becomes a test fixture.
+
+## 5.3b Screening and the ranked queue
+```bash
+uv run applypilot screen                   # re-check titles, then screen unscreened relevant jobs with a description
+uv run applypilot screen --fetch-days 14   # first fetch missing Greenhouse/Lever/Ashby descriptions (posted ≤ 14 d)
+uv run applypilot screen --all             # re-screen everything (after changing filters.py)
+uv run applypilot jobs --hours 72 --fresh --by-score   # the queue: highest score first, with visa signals
+uv run applypilot stats                    # screened / hard-dropped counts; latency by board polls vs feeds
+```
+New jobs are screened automatically before the push. After editing `filters.py`, run
+`uv run pytest tests/test_filters.py` (the 73-excerpt labeled set must stay at 100% recall and 0 false
+drops), then `screen --all` and `agent install`.
 
 ## 5.4 Background agent (launchd)
 ```bash

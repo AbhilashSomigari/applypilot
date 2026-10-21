@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from applypilot import db, notify
+from applypilot import db, notify, rank
 from applypilot.config import USER_AGENT, Settings
 from applypilot.models import ATS, Board, BoardResult, Job
 from applypilot.relevance import is_us, judge
@@ -132,7 +132,10 @@ class Poller:
         stats.new_jobs = len(new)
         fresh_cutoff = now - self.settings.fresh_hours * 3600
         for j in relevant:
-            reason = verdicts[j.ext_id].reason
+            keep, signals = rank.screen(self.conn, j, now)
+            if not keep:
+                continue  # citizenship, clearance, ITAR, scam or 4+ years in the description
+            reason = verdicts[j.ext_id].reason + (f" · {signals}" if signals else "")
             if baseline:
                 if j.posted_at and j.posted_at >= fresh_cutoff:
                     stats.fresh_baseline.append((j, reason))

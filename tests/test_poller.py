@@ -40,7 +40,9 @@ async def test_baseline_then_new_job_is_pushed(conn, settings, client, monkeypat
         respx.get(f"{GH}/3").respond(200, json={"content": "&lt;p&gt;We sponsor visas&lt;/p&gt;"})
         s2 = await p.run_once()
     assert [j.title for j, _ in s2.relevant] == ["ML Engineer"]
-    assert pushed == [("ML Engineer", "tech role, US")]
+    # the description is screened: "We sponsor visas" shows up as a visa signal on the push
+    assert len(pushed) == 1 and pushed[0][0] == "ML Engineer"
+    assert pushed[0][1].startswith("tech role, US · score ") and pushed[0][1].endswith("sponsors visas")
     row = conn.execute("SELECT description, notified_at, is_baseline FROM jobs WHERE ext_id='3'").fetchone()
     assert row["description"] == "We sponsor visas" and row["notified_at"] and row["is_baseline"] == 0
     assert s2.latencies_s and s2.latencies_s[0] < 600

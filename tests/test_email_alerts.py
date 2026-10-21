@@ -141,7 +141,8 @@ async def test_indeed_alert_resolves_to_the_ats_job_and_pushes_once(ap_home, con
     assert "after:" in lst.calls[0].request.url.params["q"]
     assert s.leads == 2 and s.resolved_by_name == 1 and s.new_jobs == 1
     # the ATS job is pushed with its employer apply link; Globex (untracked) keeps a stable Indeed link
-    assert pushed[0] == ("greenhouse:acmerobotics:7", "new-grad tech role, US · via Indeed")
+    assert pushed[0][0] == "greenhouse:acmerobotics:7"
+    assert pushed[0][1].startswith("new-grad tech role, US · score ") and pushed[0][1].endswith(" · via Indeed")
     other = conn.execute("SELECT url, source FROM jobs WHERE ats='other'").fetchone()
     assert other["url"].startswith("https://www.indeed.com/jobs?q=") and other["source"] == "gmail:indeed"
     assert len(pushed) == 2

@@ -86,7 +86,15 @@ CREATE TABLE IF NOT EXISTS feed_items (
 
 # columns added after a table first shipped; connect() adds any that are missing
 MIGRATIONS = {
-    "jobs": {"source": "TEXT NOT NULL DEFAULT 'ats'"},
+    "jobs": {
+        "source": "TEXT NOT NULL DEFAULT 'ats'",
+        # description screening (rank.screen): priority 0-100, visa signals, soft knockouts
+        "score": "REAL",
+        "sponsorship": "TEXT",  # offers | no | unknown
+        "everify": "INTEGER",
+        "flags": "TEXT",  # JSON list
+        "screened_at": "REAL",
+    },
 }
 
 
@@ -215,6 +223,12 @@ def set_description(conn: sqlite3.Connection, job_id: str, description: str) -> 
     conn.execute("UPDATE jobs SET description=? WHERE id=?", (description, job_id))
 
 
+def set_screen(conn: sqlite3.Connection, job_id: str, score: float, sponsorship: str, everify: bool, flags: str,
+               now: float) -> None:
+    conn.execute("UPDATE jobs SET score=?, sponsorship=?, everify=?, flags=?, screened_at=? WHERE id=?",
+                 (score, sponsorship, int(everify), flags, now, job_id))
+
+
 def set_relevance(conn: sqlite3.Connection, job_id: str, relevant: bool, reason: str) -> None:
     conn.execute("UPDATE jobs SET relevant=?, reason=? WHERE id=?", (int(relevant), reason, job_id))
 
@@ -243,6 +257,11 @@ def save_probe(conn: sqlite3.Connection, key: str, found: list[tuple[str, str]],
 
 def mark_notified(conn: sqlite3.Connection, job_ids: Iterable[str], now: float) -> None:
     conn.executemany("UPDATE jobs SET notified_at=? WHERE id=?", [(now, i) for i in job_ids])
+
+
+def row_job(r: sqlite3.Row) -> Job:
+    return Job(r["ats"], r["slug"], r["ext_id"], r["title"], r["company"], r["location"], r["country"],
+               bool(r["remote"]), r["url"], r["apply_url"], r["description"], r["posted_at"], r["source"])
 
 
 def get_job(conn: sqlite3.Connection, job_id: str) -> sqlite3.Row | None:

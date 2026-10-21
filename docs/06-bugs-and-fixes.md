@@ -18,6 +18,11 @@ narratives and interview versions live in the local engineering journal._
 | B-011 | 2026-10-20 | Seeding: "X Job Board" names rejected; negatives cached forever | Resolved |
 | B-012 | 2026-10-20 | Tiers: re-seeding undid cold demotion | Resolved (+ data repair) |
 | B-013 | 2026-10-20 | Feeds: double push for two listings of one job (design review) | Prevented |
+| B-014 | 2026-10-21 | Filters: hard drops missed on the labeled set (5 of 35) | Resolved |
+| B-015 | 2026-10-21 | Filters: held-out miss, ITAR clause read as "preferred" | Resolved |
+| B-016 | 2026-10-21 | Filters: "post-training feedback" read as a training-fee scam | Resolved |
+| B-017 | 2026-10-21 | Stats: detection latency mixed board polls, feeds and re-listings | Resolved |
+| B-018 | 2026-10-21 | Data: stored relevance verdicts predate newer title rules | Resolved (screen re-judges) |
 
 ---
 
@@ -177,3 +182,53 @@ narratives and interview versions live in the local engineering journal._
 - **Fix:** Check, judge and insert run with no `await` between them. The description is fetched after
   the insert and written with `db.set_description`. The asyncio event loop is single-threaded, so
   that section is atomic.
+
+### B-014: Hard drops missed on the labeled set (5 of 35)
+- **Symptom:** The first run of the 73-excerpt eval: recall 30/35, 0 false drops.
+- **Causes:**
+  - "What We’re Looking For" used a curly apostrophe; the header regex expected `'`.
+  - "Skills & Qualifications" and "You’ll Thrive Here If You" weren't recognized as requirement
+    headers (the regex was anchored to the start of the line and lacked "thrive").
+  - "U.S. citizenship and eligibility for a TS clearance (active TS strongly preferred)": the
+    "preferred" inside the parentheses softened the whole clause.
+- **Fix:** Normalize apostrophes; search requirement keywords anywhere in short header lines; ignore
+  softeners inside parentheses. Result: 35/35, 0 false drops.
+
+### B-015: Held-out miss: an ITAR clause read as "preferred"
+- **Symptom:** A spot check of 30 kept jobs that mention citizenship, clearance or export control
+  (not in the eval set) found one wrong keep. Northwood Space (Full Stack Developer): "under ITAR you
+  must be a U.S. citizen, lawful permanent resident…" was flagged "citizenship preferred".
+- **Cause:** The paragraph followed the "Preferred" list with no new header, so the section carried
+  over.
+- **Fix:** Must / only / limited to / is required in a clause outweighs an inherited `pref` section.
+  "Additional information", "Please note", "Work authorization", "Legal" and "Location" headers end a
+  section. The other 29 sampled keeps were right: Palantir "beneficial, but not necessary", OpenAI
+  "may need to meet certain legal status requirements" (flagged), Cape listing citizenship under
+  Preferred.
+
+### B-016: "post-training feedback loops" dropped as a training-fee scam
+- **Symptom:** The first backfill over 2,601 jobs hard-dropped OpenAI "AI Systems Engineer, Codex
+  Agents" as an OPT training scheme.
+- **Cause:** `training fee` matched inside "post-training **fee**dback"; the scam regex had no word
+  boundaries.
+- **Fix:** The scam alternatives are wrapped in `\b(...)\b`; regression case in
+  `tests/test_filters.py`; the job was restored. The other scam drop (Arya Groups: "Stop the OPT
+  Clock: Immediate enrollment…") is correct.
+
+### B-017: Detection latency mixed board polls, feeds and re-listings
+- **Symptom:** `stats` showed p50 29.8 min and p95 89 days (n=13) after the first feed day, against a
+  5-minute goal.
+- **Cause:** One number for everything. It mixed board-poll detections (0.4–2.5 min) with Simplify rows
+  (26–30 min after the ATS posted, some added days late) and a Toast job first published 7.5 days
+  earlier (re-listed).
+- **Fix:** `stats` reports board polls and feeds separately and leaves out jobs first published
+  > 48 h before detection (counted separately). Result: board polls p50 1.5 min, p95 2.5 min (n=5);
+  feeds p50 29.8 min (n=6).
+
+### B-018: Stored relevance verdicts predate newer title rules
+- **Symptom:** "Specialist AI GTM Strategy" (Okta) topped the ranked queue although the title rules
+  exclude GTM/strategy.
+- **Cause:** `relevant` is decided once at insert; rules added later (GTM, today's clearance titles)
+  never reached older rows.
+- **Fix:** `applypilot screen` re-runs the title/location gate on every relevant open job first: 72
+  demoted on 2026-10-21.

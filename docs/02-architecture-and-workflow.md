@@ -1,6 +1,6 @@
 # 2. Architecture and workflow
 
-_Reflects: Phase 2, part 1 (2026-10-20): feeds + resolver built, Google Jobs live, Gmail sign-in and Indeed alert parsing built. Planned stages are marked (Phase N)._
+_Reflects: Phase 3a (2026-10-21): feeds + resolver, Google Jobs, Gmail (Indeed alerts) and description screening + ranking built. Planned stages are marked (Phase N)._
 
 ## 2.1 End-to-end pipeline
 
@@ -11,7 +11,7 @@ flowchart LR
       PR --> B[(boards)]
       B --> P[Tiered poller<br/>ETag, 304]
       FD[Feeds: GitHub new-grad lists<br/>HN Who is hiring<br/>Google Jobs via JSearch] --> R[URL→ATS resolver]
-      G[Gmail job alerts<br/>LinkedIn, Indeed, Handshake<br/>Phase 2b] -.-> R
+      G[Gmail job alerts<br/>Indeed; LinkedIn etc. next] --> R
       R -->|new board| B
       R -->|no ATS link: company name| PR
       R -->|job lead| FJ[Feed job: same id as the ATS poller]
@@ -21,9 +21,10 @@ flowchart LR
     D -->|baseline scan| J[(jobs)]
     D -->|new id| RG[Relevance gate<br/>title + US]
     RG --> J
-    RG -->|relevant| N[ntfy push + macOS banner]
-    RG -.->|Phase 3| F[Description filters<br/>citizenship / clearance / ITAR<br/>sponsor + E-Verify signals]
-    F -.-> T[Resume variant pick / full tailor<br/>Phase 3]
+    RG -->|relevant| F[Description screen<br/>hard drops: citizenship / clearance /<br/>ITAR / scam / 4+ yrs<br/>signals + score 0-100]
+    F -->|kept| N[ntfy push + macOS banner<br/>with score and visa line]
+    F -->|hard drop| J
+    F -.-> T[Resume variant pick / full tailor<br/>Phase 3b]
     T -.-> Q[Review queue + one-tap approve<br/>Phase 4-5]
     Q -.-> A[Playwright autofill → submit<br/>Phase 4]
 ```
@@ -158,16 +159,56 @@ Evaluated on the title and location only, in this order:
 6. The **new-grad flag** (new grad, entry level, junior, associate, university, early career,
    "Engineer I", 2026/2027) raises the push priority to high.
 
-Description-based rules (years of experience, citizenship, clearance, sponsorship wording) belong to
-Phase 3.
+Title-level hard drop (added 2026-10-21): **cleared / clearance / TS/SCI / top secret / polygraph**
+in the title → "requires security clearance". Description rules are in §2.10.
+
+## 2.10 Description screening and ranking (Phase 3a)
+`filters.assess(text)` (pure) and `rank.screen(conn, job)` (stores the result) run on every relevant
+job before any push: board polls (after the Greenhouse description fetch), feed jobs, and known
+baseline jobs a feed resurfaces. `applypilot screen` backfills stored jobs.
+
+**How a description is read.** The text is cut into clauses: lines, bullets, sentences (not after
+"U.S." or "e.g."), and ";". Each clause carries a section:
+- `req`: after a short header such as Requirements / Qualifications / What you'll need / You'll thrive.
+- `pref`: after Preferred / Nice to have / Bonus / What we value.
+- `other`: after About us / Benefits / EEO / Additional information / Please note / Work authorization.
+A clause is *soft* if it sits in `pref` (unless it says must / only / required outright) or contains a
+softener (preferred, a plus, beneficial, not required, desired …) outside parentheses. Bare headers
+("Clearance:") are skipped.
+
+**Hard drops** (first match wins; the job becomes `relevant=0`, `reason='hard drop: …'`):
+
+| Drop | Fires when | Never fires on |
+|---|---|---|
+| U.S. citizenship / green card | citizen / citizenship / permanent resident / green card holder **and** (must / required / only / limited to / restricts / eligibility … **or** a `req` section) | EEO boilerplate ("without regard to … citizenship"), clauses admitting visa holders (EAD, OPT, H-1B transfer, "non-US citizens", green-card sponsorship), soft clauses |
+| Security clearance | clearance / TS/SCI / top secret / polygraph / public-trust clearance **and** (a `req` section, a cue, or active / current / hold / obtain / maintain / eligible / "Clearance Level:") | "nice to have", "beneficial but not necessary", "clearance process" (no cue) |
+| U.S. persons (ITAR / export control) | U.S. person / ITAR / export control **with** a cue | "compliance with SOC2, FedRAMP, or ITAR" → flag only |
+| OPT training / bench-sales scheme | stop the OPT clock, OPT training, enroll in our … training, training fee, guaranteed project / placement, bench sales, marketing your profile | "STEM OPT program … welcome" |
+| 4+ years required | highest required years over clauses ≥ 4; inside one clause the smallest alternative counts ("Bachelor's + 2 or Master's + 0" = 0) | preferred sections; "every 5 years", "within the last 7 years", "18 years at Google" (no "experience") |
+
+**Signals (never drops):** sponsorship stance `offers / no / unknown`; "now or in the future"
+wording; E-Verify; H-1B approvals of the board (`boards.h1b_approvals`). Flags: 2–3 years required,
+PhD required, C2C/1099, clearance / citizenship preferred, export-control mention.
+
+**Score 0–100** (`rank.score`, order only):
+- freshness 0–35 (log decay to 0 at 14 days; 10 when unknown);
+- new-grad title +15;
+- visa: offers 20, H-1B ≥ 100 18, ≥ 25 14, any 10, unknown 8, "no sponsorship" 4;
+- E-Verify +10;
+- apply path: polled ATS 10, other ATS / employer page 5, aggregator 0;
+- penalties: 3 yrs −10, 2 yrs −4, PhD −15, C2C −10, future-sponsorship question −3, clearance/citizenship
+  preferred −5.
+Fit to the resume variants is Phase 3b.
+
+**Push line:** `new-grad tech role, US · score 64 · no sponsorship: OPT/STEM OPT path · E-Verify · via Simplify`.
 
 ## 2.8 Repository layout
 ```
 applypilot/
-  src/applypilot/{config,models,db,relevance,poller,seeds,resolver,notify,gmail,launchd,cli}.py
+  src/applypilot/{config,models,db,relevance,filters,rank,poller,seeds,resolver,notify,gmail,launchd,cli}.py
   src/applypilot/sources/{base,greenhouse,lever,ashby}.py      (per-board ATS pollers)
   src/applypilot/feeds/{base,github_lists,hn,jsearch,email_alerts,runner}.py   (cross-employer feeds)
-  tests/  conftest.py  test_{sources,poller,relevance,seeds,resolver,feeds,jsearch,gmail,email_alerts}.py  fixtures/*.json (trimmed real responses)
+  tests/  conftest.py  test_{sources,poller,relevance,filters,seeds,resolver,feeds,jsearch,gmail,email_alerts}.py  fixtures/jd_eval.jsonl  fixtures/*.json (trimmed real responses)
   seeds/companies.txt
   profile/{profile,answers}.example.yaml
   docs/   (this folder)
