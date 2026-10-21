@@ -1,0 +1,26 @@
+# Copied to $APPLYPILOT_HOME/profile.yaml by `applypilot init`; fill in the copy there.
+# Personal data never lives in the repo.
+name:
+  first: Jane
+  last: Doe
+  preferred: Jane
+email: jane.doe@example.com
+phone: "(555) 555-0100"
+location:
+  city: Pittsburgh
+  state: PA
+  country: United States
+links:
+  linkedin: https://linkedin.com/in/janedoe
+  github: https://github.com/janedoe
+  portfolio: https://janedoe.github.io
+education:
+  - degree: M.S. Computer Science
+    school: Example University
+    start: 2025-01
+    end: 2026-12
+    gpa: "3.8"
+resume:
+  master_pdf: ~/Documents/Resume/resume.pdf
+  variants_dir: ~/Documents/Resume/variants
+target_locations: [Pittsburgh, Philadelphia, Remote, Anywhere in US]

@@ -1,0 +1,146 @@
+# Curated companies to poll in the hot tier. `Name, website` (website helps slug guessing).
+# The prober finds which ATS (Greenhouse / Lever / Ashby) each one uses; misses are fine.
+
+# AI labs and AI-native
+OpenAI, openai.com
+Anthropic, anthropic.com
+Scale AI, scale.com
+Cohere, cohere.com
+Perplexity, perplexity.ai
+Mistral AI, mistral.ai
+Hugging Face, huggingface.co
+Together AI, together.ai
+Fireworks AI, fireworks.ai
+Modal, modal.com
+Baseten, baseten.co
+Replicate, replicate.com
+Pinecone, pinecone.io
+Weaviate, weaviate.io
+LangChain, langchain.com
+LlamaIndex, llamaindex.ai
+Glean, glean.com
+Harvey, harvey.ai
+Sierra, sierra.ai
+Decagon, decagon.ai
+Cursor, cursor.com
+Cognition, cognition.ai
+Replit, replit.com
+Vercel, vercel.com
+Runway, runwayml.com
+ElevenLabs, elevenlabs.io
+Character AI, character.ai
+Writer, writer.com
+Jasper, jasper.ai
+Abridge, abridge.com
+Hebbia, hebbia.ai
+Weights & Biases, wandb.ai
+Snorkel AI, snorkel.ai
+Labelbox, labelbox.com
+Arize AI, arize.com
+Skild AI, skild.ai
+Figure AI, figure.ai
+Physical Intelligence, physicalintelligence.company
+
+# Developer tools / infra
+Databricks, databricks.com
+Snowflake, snowflake.com
+Datadog, datadoghq.com
+Cloudflare, cloudflare.com
+MongoDB, mongodb.com
+Confluent, confluent.io
+HashiCorp, hashicorp.com
+GitLab, gitlab.com
+Postman, postman.com
+Supabase, supabase.com
+Neon, neon.tech
+PlanetScale, planetscale.com
+Temporal, temporal.io
+Grafana Labs, grafana.com
+Sentry, sentry.io
+PagerDuty, pagerduty.com
+Elastic, elastic.co
+Twilio, twilio.com
+Okta, okta.com
+Fivetran, fivetran.com
+dbt Labs, getdbt.com
+Retool, retool.com
+Airtable, airtable.com
+Notion, notion.so
+Linear, linear.app
+Figma, figma.com
+Canva, canva.com
+Asana, asana.com
+Atlassian, atlassian.com
+Samsara, samsara.com
+
+# Fintech
+Stripe, stripe.com
+Ramp, ramp.com
+Brex, brex.com
+Plaid, plaid.com
+Robinhood, robinhood.com
+Coinbase, coinbase.com
+Chime, chime.com
+Affirm, affirm.com
+SoFi, sofi.com
+Mercury, mercury.com
+Rippling, rippling.com
+Gusto, gusto.com
+Deel, deel.com
+Carta, carta.com
+Toast, toasttab.com
+Marqeta, marqeta.com
+Betterment, betterment.com
+Wealthfront, wealthfront.com
+Two Sigma, twosigma.com
+Jane Street, janestreet.com
+Citadel Securities, citadelsecurities.com
+Hudson River Trading, hudsonrivertrading.com
+Jump Trading, jumptrading.com
+Optiver, optiver.com
+IMC Trading, imc.com
+
+# Consumer / marketplaces
+Airbnb, airbnb.com
+DoorDash, doordash.com
+Instacart, instacart.com
+Lyft, lyft.com
+Pinterest, pinterest.com
+Reddit, reddit.com
+Discord, discord.com
+Dropbox, dropbox.com
+Duolingo, duolingo.com
+Spotify, spotify.com
+Roblox, roblox.com
+Peloton, onepeloton.com
+Etsy, etsy.com
+Squarespace, squarespace.com
+Grammarly, grammarly.com
+Quizlet, quizlet.com
+Faire, faire.com
+Whatnot, whatnot.com
+Nextdoor, nextdoor.com
+Zillow, zillow.com
+
+# Data / enterprise / gov-adjacent (citizenship roles get filtered later)
+Palantir, palantir.com
+Anduril, anduril.com
+Verkada, verkada.com
+Flexport, flexport.com
+Benchling, benchling.com
+Tempus, tempus.com
+Flatiron Health, flatiron.com
+Komodo Health, komodohealth.com
+Oscar Health, hioscar.com
+Headway, headway.co
+Cedar, cedar.com
+
+# Target-location employers (Pittsburgh, Philadelphia, NJ, Charlotte, Cleveland)
+Aurora Innovation, aurora.tech
+Gecko Robotics, geckorobotics.com
+Petal, petalmd.com
+Vanguard, vanguard.com
+Comcast, comcast.com
+goPuff, gopuff.com
+LendingTree, lendingtree.com
+AvidXchange, avidxchange.com

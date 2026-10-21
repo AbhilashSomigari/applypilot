@@ -1,0 +1,175 @@
+# Progress log
+
+Newest first. Each entry: date, phase, what changed, verified numbers.
+
+## Phase status
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | Scaffold, config, SQLite, CLI, profile/answers templates | ✅ Done (2026-10-20) |
+| 1 | Greenhouse/Lever/Ashby sources, tiered poller, seeding, alerts, launchd agent | ✅ Done (2026-10-20); agent installed and running |
+| 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
+| 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | Planned |
+| 4 | Playwright autofill, approve → submit, confirmation detection | Planned |
+| 5 | Phone dashboard, tracker, Workday adapter | Planned |
+| 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-20 (night): Gmail read-only sign-in
+
+**Built:**
+- `gmail.py`: OAuth for an installed app with plain httpx: loopback redirect on a random
+  `127.0.0.1` port, PKCE (S256), `state` check, scope `gmail.readonly` only.
+  - The refresh token goes to `~/.applypilot/gmail_token.json`, created with mode 600.
+  - Refuses a sign-in that returns no refresh token or lacks the read scope.
+  - `Gmail` async client: refreshes the access token when expired (or once on a 401). A revoked or
+    7-day-expired sign-in (`invalid_grant`) raises `GmailAuthError`.
+  - `SITES`: Gmail search per alert source (LinkedIn, Indeed, Handshake, Glassdoor, ZipRecruiter, Dice).
+- CLI: `gmail login` (warns if the account differs from `profile.yaml`), `gmail status`,
+  `gmail samples` (raw `.eml`, mode 600), `gmail logout` (revokes at Google).
+- Tests: `tests/test_gmail.py` (7), including a fake browser hitting the real loopback server and a
+  forged `state`. 85 passing, ruff clean.
+
+**Setup state:** Desktop OAuth client created; the app stays in **Testing** because production
+requires homepage and privacy-policy URLs (L-17).
+
+**Then (same night): signed in, Indeed alerts live.**
+- `gmail login` worked first time (read-only; token mode 600). The last 30 days had 38 Indeed emails
+  (13 alerts, 17 "jobs you may like", 8 receipts/account), 3 Handshake account emails and **0 from
+  LinkedIn**. Handshake now mails this inbox directly, so no forwarding filter is needed.
+- `feeds/email_alerts.py`: an `EmailAlerts` feed per site with a parser (Indeed so far). It parses the
+  plain-text part into cards, never opens tracking links, and resolves by company + title.
+  - Stable links: `viewjob?jk=` from organic trackers, else an exact-title search. Duplicate cards
+    across emails collapse to one job.
+  - Pushes once on day 6 ("sign-in ends tomorrow") and once on expiry (`notify.message`).
+  - `gmail login` now restarts the agent; `gmail test` previews parsed cards.
+- Relevance: titles with cleared / clearance / TS/SCI / top secret / polygraph are dropped ("requires
+  security clearance"), the user's hard drop. Seen live: "Cleared Software Engineer".
+- **Live:** `gmail test --days 7` → 145 cards. Agent baseline: 59 cards → 45 new jobs (14 already known,
+  same job across emails), 4 on an ATS we poll (L-18). 91 tests passing (+6), ruff clean.
+
+## 2026-10-20 (late): Google Jobs via JSearch
+
+**Built:**
+- `feeds/jsearch.py`: one feed per query (4 defaults: new-grad and entry-level SWE, MLE, DS), US,
+  full-time, recent window.
+  - Pacing: `JSearch.interval_s()` keeps all queries within 90% of the monthly quota (free 200 →
+    ~16 h per query; Pro 10,000 → ~19 min).
+  - 429/401 back off through the feed error path; a warning is logged when fewer than 10 requests
+    remain.
+- `resolver.best_url` and `AGGREGATORS`: apply on the most direct option (pollable ATS → other ATS →
+  employer page). LinkedIn/Indeed/Glassdoor/ZipRecruiter/Dice links are never fetched.
+- Aggregator-only results go through `resolve_by_name` (company + title on the company's ATS board,
+  probing and scanning it if untracked). Only if that fails is the aggregator link kept.
+- Runner: a known job seen only on a silent baseline, relevant, fresh and never pushed is now pushed
+  when any feed surfaces it.
+- JSearch descriptions are stored on the job, which Phase 3 filters can use.
+- CLI: `feeds set-key jsearch` (hidden prompt, config mode 600, restarts the agent), `feeds test
+  jsearch`, quota pacing shown in `feeds list`.
+- Tests: 70 → 75.
+
+**Verified live (later the same evening):**
+- RapidAPI's website timed out, so the key came from OpenWeb Ninja directly (`--provider
+  openwebninja`); `/jsearch/search` with `x-api-key` works.
+- The four baselines: one query returned 10 jobs, three returned 0 with `date_posted=today`. Four
+  diagnostic requests showed the filters aren't the cause: the index is just thin (3 results over 3
+  days for "entry level software engineer").
+- Every result had a single aggregator apply link.
+- Changes: on slow (free) pacing the feed now asks for `3days` (duplicates removed by job id), and
+  ~15 more aggregator hosts were added (Jobgether, JobMESH, Remote.co, ClearanceJobs…).
+- Tests: 75 → 78.
+- Verdict: cheap coverage, low value on the free plan (docs/07 L-15).
+- Requests used today: 1 test + 4 baselines + 4 diagnostics = 9 of 200.
+
+---
+
+## 2026-10-20 (evening): agent installed; Phase 2 part 1 (feeds + resolver)
+
+**Agent:**
+- `agent install`: launchd agent running under `caffeinate -i` (assertion verified with
+  `pmset -g assertions`).
+- Its first cycle covered 534 boards in ~6 s with 0 errors.
+- Logging fixed before it could pile up (B-009): unbuffered `run.log`, httpx at WARNING, rotating
+  `poller.log`, 5-min summaries.
+
+**Built:**
+- `resolver.py`:
+  - `parse()` for Greenhouse (job, board, embed, API), Lever, Ashby (UUID-validated), Workday
+    (tenant/site/requisition), SmartRecruiters, Workable, `gh_jid` / `ashby_jid` career-page embeds,
+    and `other`.
+  - Tracking params are stripped.
+  - `resolve()` follows short links (grnh.se, lnkd.in, bit.ly…), recovers a Greenhouse slug from a
+    bare `gh_jid` via the embed redirect, and registers pollable boards.
+  - `find_on_boards` / `resolve_by_name` handle company + title matching (the LinkedIn path).
+- `feeds/`:
+  - `FeedRunner` loop beside the poller.
+  - Feeds: `GitHubList` (Simplify-format `listings.json`, conditional GET) and `HackerNews` (Algolia,
+    cursor on comment time).
+  - Same baseline-then-diff semantics as boards. Feed jobs share the poller's job ids, so there's one
+    row and one push per job.
+- Schema: `jobs.source`, `feeds`, `feed_items`, additive `MIGRATIONS`.
+- CLI: `feeds poll|list`, `resolve`, `run --no-feeds`, `stats` by source, `jobs` "via" column.
+- Tests: 38 → 70, ruff clean.
+
+**Live results (first feed baseline, 1 min 54 s):**
+- 3,910 leads → 3,393 new jobs. 261 were already known from board polling, so dedupe works across
+  sources.
+- **510 boards added** by the feeds: 435 from GitHub lists (mostly hot), 73 from HN (warm).
+- 848 companies probed.
+- Boards: **653 → 1,162** (510 hot / 494 warm / 148 cold / 6 dead / 4 blocked).
+- Relevant open jobs: 2,321 → **6,899**:
+  - 5,135 first found by board polls, 1,764 first found by the lists;
+  - **1,448 on ATSs we can't poll** (Workday, SmartRecruiters, Oracle, …).
+- Feed rows judged not relevant: 1,235 non-tech titles, 54 London, 49 **"requires US citizenship"**
+  (Simplify flag), 42 senior.
+- `resolve --company Datadog --title "AI Research Scientist - Datadog AI Research"` matched the
+  "(DAIR)" posting.
+- `resolve --company Rubrik --title …`: Rubrik was untracked. The resolver probed the company, added
+  `greenhouse/rubrik`, scanned it and returned the apply link. This is the Phase 2 "LinkedIn job →
+  ATS page" check, done by hand. The Gmail ingester will feed it automatically.
+- **First post-baseline detection:** Anthropic "Security Engineer / Research Engineer, RL Security",
+  posted 19:17:54, detected and pushed 19:19:47 (**1.9 min**).
+
+**Bugs found and fixed:** B-009 to B-013 (see [06-bugs-and-fixes.md](06-bugs-and-fixes.md)). Data
+repairs:
+- 2 wrong HN boards removed;
+- all 2,361 cached probe misses re-probed;
+- 118 placeholder boards re-demoted to cold.
+
+**Not yet done (Phase 2b):** Gmail alert ingestion and Google Jobs (both need credentials from the
+user), remote boards, Adzuna. See [07 §7.2a](07-roadmap-and-improvements.md).
+
+---
+
+## 2026-10-20: Phase 0 + 1 built and verified live
+
+**Built:**
+- Repo `~/Documents/applypilot`: Python 3.12 + uv, `src/` layout, 38 tests, ruff clean.
+- `sources/`: Greenhouse, Lever and Ashby adapters over the public, keyless job-board APIs, with
+  conditional GETs (ETag → 304).
+- `poller.py`: tiered polling (hot 150 s / warm 900 s / cold 3 h, ±15% jitter), baseline-then-diff,
+  close/reopen tracking, auto-promotion to hot, auto-demotion to cold, 404×3 → dead.
+- `relevance.py`: title gate (tech role, not senior, not internship, not another engineering field)
+  plus a US-location gate.
+- `seeds.py`: slug prober with a per-company cache. Seeds: curated list (132 companies), YC
+  (yc-oss), USCIS H-1B Employer Data Hub (FY2023).
+- `notify.py`: ntfy phone push and macOS banner.
+- `launchd.py`: per-user LaunchAgent under `caffeinate -i`.
+- `cli.py`: init, boards add/list/block, seed curated/yc/h1b, poll, run, jobs, stats, agent,
+  test-push.
+
+**Live results:**
+- Curated seeding: 132 companies → 110 boards in ~22 s; 32 companies aren't on these ATSs.
+- YC seeding: 1,369 companies probed → 514 new boards (76 s).
+- H-1B seeding: 843 employers probed → 29 new boards (49 s).
+- Total **653 boards** (424 Ashby, 162 Greenhouse, 67 Lever); 27,810 open jobs, 2,321 judged relevant.
+- **Full cycle over 649 active boards: 6.3 s, 0 errors**, 648 of them 304 Not Modified.
+- Its first scan surfaced a Palantir "Software Engineer, New Grad" posted 22 h earlier, plus fresh
+  roles at OpenAI, Anthropic, Cursor, Coinbase and Reddit.
+
+**Bugs found and fixed:** B-001 to B-008 (see [06-bugs-and-fixes.md](06-bugs-and-fixes.md)).
+
+**Not yet done (at the time):**
+- The launchd agent wasn't installed yet (installed later the same day).
+- No post-baseline detection-latency data yet.

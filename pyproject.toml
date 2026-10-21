@@ -1,0 +1,43 @@
+[project]
+name = "applypilot"
+version = "0.1.0"
+description = "Find new job postings minutes after they go live on company ATS boards, and get applications ready fast."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.27,<1",
+  "pydantic>=2.8,<3",
+  "PyYAML>=6,<7",
+  "typer>=0.12,<1",
+  "rich>=13,<15",
+]
+
+[project.scripts]
+applypilot = "applypilot.cli:app"
+
+[dependency-groups]
+dev = [
+  "pytest>=8,<10",
+  "pytest-asyncio>=0.24,<2",
+  "respx>=0.21,<1",
+  "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/applypilot"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src", "tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

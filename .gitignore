@@ -1,0 +1,18 @@
+# local-only notes (never commit)
+CLAUDE.md
+ENGINEERING_JOURNAL.md
+
+# personal data
+profile/*.yaml
+!profile/*.example.yaml
+data/
+*.db
+*.db-*
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/

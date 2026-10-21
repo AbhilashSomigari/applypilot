@@ -1,0 +1,29 @@
+{
+ "hits": [
+  {
+   "objectID": "50002587",
+   "parent_id": 49922569,
+   "story_id": 49922569,
+   "author": "wojciech12",
+   "created_at_i": 1791442662,
+   "comment_text": "ICEYE | Platform, DevOps and Observability Engineers (Senior&#x2F;Staff) | Espoo, Finland &#x2F; Berlin, Germany | HYBRID | Full-time (relocation support)<p>ICEYE builds and operates the world&#x27;s largest SAR satellite constellation. I lead the Platform organisation: three teams (Core Platform&#x2F;Infra, Developer Enablement, SRE) that build the foundation our engineering ships on. Go and Python, Kubernetes on cloud and on-prem, some of it air-gapped. Terraform&#x2F;OpenTofu, Istio, Vault, LGTM stack, OpenTelemetry. Mission-critical systems.<p>We are hiring in Espoo and our new Berlin office:<p>- Staff Platform Engineer: own the Kubernetes platform across cloud and on-prem, build &amp; extend tooling in Go, set technical direction. <a href=\"https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;cf6ba0e9-a750-4ee7-9b0a-8cb519cb7c39\" rel=\"nofollow\">https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;cf6ba0e9-a750-4ee7-9b0a-8cb51...</a><p>- Senior DevOps Engineer: build and run core platform components (Go, K8s, ingress, service mesh, secrets, IaC). <a href=\"https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;c6b51b8b-94af-4007-8464-4a4b858fa5e7\" rel=\"nofollow\">https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;c6b51b8b-94af-4007-8464-4a4b8...</a><p>- Senior&#x2F;Staff Platform Observability Engineer: own metrics, logs and traces as a product for all engineering teams, build tooling around it. <a href=\"https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;19a2709c-1e6d-4c8d-958a-2f07f017f372\" rel=\"nofollow\">https:&#x2F;&#x2F;jobs.ashbyhq.com&#x2F;iceye&#x2F;19a2709c-1e6d-4c8d-958a-2f07f...</a><p>What we look for: hands-on Kubernetes and cloud experience, comfort with on-prem, pragmatism and empathy for the developers you serve.<p>Questions? Reach me at wb@iceye.com. Apply directly."
+  },
+  {
+   "objectID": "50104234",
+   "parent_id": 49922569,
+   "story_id": 49922569,
+   "author": "onnimonni",
+   "created_at_i": 1792074658,
+   "comment_text": "Treat Health | Full-stack Engineer (Elixir, Phoenix LiveView, React) | Helsinki, Finland | ONSITE | Full-time | Compensation in the link below<p>Treat Health is building healthcare where the right care takes minutes, not days. You describe your concern in your own words, our smart intake asks the follow-up questions a doctor would ask, and a licensed doctor reviews the whole picture and decides on the care. Prescriptions and records go straight to Kanta, Finland&#x27;s national health archive.<p>Right now, agentic frontend engineering and agentic mobile app development matter most to us. We expect you to work across the whole stack, with our assistance and tooling.<p>Stack: Elixir, Phoenix LiveView, React, TypeScript, Tailwind, GCP, Cloudflare and Rust, with Swift and Kotlin for our native mobile apps. Claude is part of everyday work, from planning and coding to review. We care about how well you direct coding agents, not how fast you type.<p>Small team, high trust: you own problems end to end, with real influence on what we build. Health data stays in the EU, every sign-in uses strong identification, and patient data never ends up in logs.<p>For now, working on site in Helsinki is a must, and we can&#x27;t offer relocation or visa support, so you need to already be able to work in Finland. We may hire remotely in the future, so check back later.<p>Compensation, details and how to apply: <a href=\"https:&#x2F;&#x2F;treat.health&#x2F;en&#x2F;careers&#x2F;full-stack-engineer&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;treat.health&#x2F;en&#x2F;careers&#x2F;full-stack-engineer&#x2F;</a>"
+  },
+  {
+   "objectID": "50116161",
+   "parent_id": 50104234,
+   "story_id": 49922569,
+   "author": "ridsvazi",
+   "created_at_i": 1792142943,
+   "comment_text": "Would you be open for a full stack engineer on fully remote? I&#x27;m actively seeking for an opportunity and would be pleasure to help you for development needs at competitive rates."
+  }
+ ],
+ "nbHits": 3
+}

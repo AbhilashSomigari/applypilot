@@ -1,0 +1,24 @@
+# Fixed screening answers, copied to $APPLYPILOT_HOME/answers.yaml by `applypilot init`.
+# The autofill stage (Phase 4) uses ONLY these for these questions. Edit here, never per form.
+work_authorization:
+  authorized_to_work_in_us: "Yes"          # on F-1 OPT, then STEM OPT
+  visa_status: "F-1 student (OPT/STEM OPT eligible)"
+  require_sponsorship_now: "No"            # OPT + STEM OPT cover ~3 years
+  require_sponsorship_future: "Yes"        # H-1B later; truthful answer, may trigger auto-reject on some forms
+  us_citizen_or_permanent_resident: "No"
+availability:
+  earliest_start: "January 2027"
+  graduation: "December 2026"
+  willing_to_relocate: "Yes"
+  remote_hybrid_onsite: "Any"
+compensation:
+  expected_salary: "Open / market rate for the role"
+eeo:                                       # voluntary self-identification
+  gender: "Decline to self-identify"
+  race_ethnicity: "Decline to self-identify"
+  veteran_status: "I don't wish to answer"
+  disability: "I do not wish to answer"
+misc:
+  how_did_you_hear: "Company careers page"
+  previously_employed_here: "No"
+  over_18: "Yes"

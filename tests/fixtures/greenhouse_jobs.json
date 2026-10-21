@@ -1,0 +1,40 @@
+{
+ "jobs": [
+  {
+   "absolute_url": "https://stripe.com/jobs/search?gh_jid=8172510",
+   "id": 8172510,
+   "location": {
+    "name": "Seattle, San Francisco, New York City"
+   },
+   "title": "Abuse Investigator",
+   "company_name": "Stripe",
+   "first_published": "2026-09-09T10:50:29-04:00",
+   "updated_at": "2026-10-20T17:27:19-04:00"
+  },
+  {
+   "absolute_url": "https://stripe.com/jobs/search?gh_jid=8172487",
+   "id": 8172487,
+   "location": {
+    "name": "Dublin"
+   },
+   "title": "Abuse Investigator",
+   "company_name": "Stripe",
+   "first_published": "2026-09-03T13:30:34-04:00",
+   "updated_at": "2026-10-20T17:25:53-04:00"
+  },
+  {
+   "absolute_url": "https://stripe.com/jobs/search?gh_jid=8172508",
+   "id": 8172508,
+   "location": {
+    "name": "Dublin"
+   },
+   "title": "Abuse Investigator",
+   "company_name": "Stripe",
+   "first_published": "2026-09-03T13:32:53-04:00",
+   "updated_at": "2026-10-20T17:25:53-04:00"
+  }
+ ],
+ "meta": {
+  "total": 3
+ }
+}
