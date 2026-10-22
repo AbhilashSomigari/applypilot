@@ -27,6 +27,9 @@ narratives and interview versions live in the local engineering journal._
 | B-020 | 2026-10-21 | Variants: one-posting archetype generalized poorly (swe-backend) | Resolved (multi-posting archetype: 122 → 546 jobs won) |
 | B-021 | 2026-10-21 | Fit: backfill too slow (JD terms re-derived per variant) | Resolved |
 | B-022 | 2026-10-22 | Tailoring: a run that slept mid-session hung 5.3 h past its 30-min timeout | Resolved (wall-clock deadline) |
+| B-023 | 2026-10-22 | Answers: 9 kinds of wrong automatic answers found by reviewing 60 real forms | Resolved (+34 regression tests) |
+| B-024 | 2026-10-22 | Filler: readback passed a wrong answer ("Doe" for preferred first + last name) | Resolved; lesson: readback ≠ correctness |
+| B-025 | 2026-10-22 | Filler: Ashby UUID ids broke `#id` selectors; sidebar text matched instead of the field | Resolved |
 
 ---
 
@@ -278,3 +281,48 @@ narratives and interview versions live in the local engineering journal._
   - The partial output was moved to `variants/_archive/` and the last good variant restored.
   - The earlier failure that night was the Claude usage limit ("You've hit your session limit"),
     returned cleanly as an error after 81 s.
+
+### B-023: Wrong automatic answers found by reviewing 60 real forms
+- **How found:** Every distinct automatic answer across the 60 highest-ranked jobs' forms was printed
+  and read before any form was filled.
+- **Wrong:**
+  - "Have you worked at Snowflake … in any *capacity*" → "Morgantown, WV" (`city` matched inside
+    "capacity").
+  - Graduation dropdown → "Summer 2026" (any `2026` option; the truth is December).
+  - "Are you able to relocate to NYC?" → "I am local to the NYC area" (any "I am…" counted as yes).
+  - "How did you first learn about us?" → "Campus Career Fair" (`career` matched).
+  - "Preferred First & Last Name" → the last name.
+  - "West Virginia University" chosen in unrelated dropdowns mentioning "university".
+  - "What is the address from which you plan on working?" → "Yes".
+  - A Cape Town job's questions answered as if in the US.
+  - Conditional follow-ups ("If you answered yes…") answered.
+- **Fix:**
+  - Rules reordered specific → general; word boundaries; yes/no options must say so outright.
+  - School, location and link rules apply only to text fields.
+  - Graduation options must name Oct–Dec 2026.
+  - New always-yours classes: another country, follow-ups, two-part questions, "where will you work",
+    "eligible to begin immediately" (F-1 OPT timing).
+  - 34 regression tests use the real labels.
+
+### B-024: Readback confirmed a wrong answer
+- **Symptom:** Lever's "What is your preferred first name and last name?" was filled with the last name,
+  and the readback said `filled`.
+- **Cause:** The question is a multi-line card, and the name rules only applied to single-line fields.
+  Readback compares the page with what was typed, so it can't detect a wrong rule.
+- **Fix:** Name rules cover text areas; a regression test. Correctness rests on the answer review
+  (B-023) and the tests; readback only proves the page holds the intended value.
+
+### B-025: Ashby selectors
+- **Symptom:** In a 12-form batch dry run, Ashby forms had 5 `failed` (`querySelectorAll … '#2…'`) and
+  1 `mismatch` (location).
+- **Cause:**
+  - Ashby field ids are UUIDs that can start with a digit, which `#id` can't express.
+  - Text search for "Location" matched the page's sidebar first.
+  - Some location fields are plain text with no suggestions.
+- **Fix:**
+  - `[id="…"]` / `[name="…"]` attribute selectors.
+  - Form `<label>` before plain text.
+  - Location: pick only a suggestion naming the same city; with no suggestions, the typed text is the
+    answer.
+- **Result:** the same 12 forms gave 106 filled and verified, 0 mismatch, 0 failed. Databricks redirects
+  to its own site and is reported instead.

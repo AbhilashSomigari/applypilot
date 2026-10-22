@@ -22,3 +22,10 @@ misc:
   how_did_you_hear: "Company careers page"
   previously_employed_here: "No"
   over_18: "Yes"
+  # Set these to make the matching questions automatic; empty = the form asks you
+  pronouns: ""                         # e.g. "he/him"
+  currently_employed: ""               # "Yes" / "No"
+  government_official_or_relative: ""  # "Yes" / "No": a current government official, or close relative of one
+  noncompete: ""                       # "Yes" / "No": subject to a non-compete or similar agreement
+  most_recent_employer: ""             # e.g. "West Virginia University"
+  most_recent_title: ""                # e.g. "Graduate Research Assistant"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import json
 import logging
 import shutil
@@ -532,6 +533,78 @@ def tailor_cmd(job_id: str) -> None:
     if r.error:
         raise typer.Exit(1)
     db.set_tailored(conn, job_id, str(r.pdf), r.score)
+
+
+@app.command("plan")
+def plan_cmd(job_id: str) -> None:
+    """Show how ApplyPilot would fill this job's application: every field, its answer and source, the resume
+    to attach, and what needs you. Reads the form only; nothing is filled or sent."""
+    from applypilot.apply import answers, forms
+
+    s = get_settings()
+    row = db.get_job(_conn(), job_id)
+    if row is None:
+        raise typer.BadParameter(f"no job {job_id}")
+
+    async def go():
+        async with make_client(s) as client:
+            return await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
+
+    try:
+        form = asyncio.run(go())
+    except (httpx.HTTPError, ValueError) as e:
+        console.print(f"[red]can't read the form:[/] {e}")
+        raise typer.Exit(1) from None
+    resume = answers.resume_for(s, row)
+    plan = answers.plan(form, resume)
+    t = Table("", "question", "answer", "from")
+    for a in plan:
+        if a.source == "skip":
+            continue
+        mark = "[yellow]?[/]" if a.source == "needs_you" else ("*" if a.field.required else "")
+        value = a.note if a.source == "needs_you" else (", ".join(a.value) if isinstance(a.value, list) else a.value)
+        t.add_row(mark, a.field.label[:70], str(value or "")[:60], a.source)
+    console.print(f"[bold]{row['company']}: {row['title']}[/]  {form.url}")
+    console.print(t)
+    needs = [a for a in plan if a.source == "needs_you"]
+    req = [a for a in plan if a.field.required]
+    console.print(f"required fields answered: {sum(a.source not in ('needs_you', 'skip') for a in req)}/{len(req)}"
+                  f" · needs you: {len(needs)} · resume: {resume or 'none found'}"
+                  + (f" · [yellow]{form.captcha} on the page: you solve it[/]" if form.captcha else ""))
+
+
+@app.command("fill")
+def fill_cmd(job_id: str,
+             with_resume: Annotated[bool, typer.Option(help="attach the resume (Lever/Ashby upload it at once)")]
+             = False,
+             headless: bool = False, keep_open: bool = False) -> None:
+    """Dry run: open the job's application in Chrome, fill every answer from the plan, read each field back and
+    screenshot it. Never submits."""
+    from applypilot.apply import answers, filler, forms
+
+    s = get_settings()
+    row = db.get_job(_conn(), job_id)
+    if row is None:
+        raise typer.BadParameter(f"no job {job_id}")
+
+    async def go():
+        async with make_client(s) as client:
+            form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
+        plan = answers.plan(form, answers.resume_for(s, row))
+        return await filler.fill(row["ats"], form.url, plan, with_resume=with_resume, headless=headless,
+                                 keep_open=keep_open)
+
+    results, shot = asyncio.run(go())
+    t = Table("status", "question", "wanted", "read back / note")
+    colors = {"filled": "green", "mismatch": "red", "failed": "red", "needs_you": "yellow", "skipped": "dim"}
+    for r in results:
+        if r.status == "skipped" and not r.wanted:
+            continue
+        t.add_row(f"[{colors[r.status]}]{r.status}[/]", r.label[:60], r.wanted[:40], (r.got or r.error)[:50])
+    console.print(t)
+    n = collections.Counter(r.status for r in results)
+    console.print(f"filled {n['filled']} · mismatch {n['mismatch']} · failed {n['failed']} · needs you "
+                  f"{n['needs_you']} · screenshot {shot}  (nothing was submitted)")
 
 
 @app.command("resolve")

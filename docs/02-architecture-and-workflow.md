@@ -1,6 +1,6 @@
 # 2. Architecture and workflow
 
-_Reflects: Phase 3a (2026-10-21): feeds + resolver, Google Jobs, Gmail (Indeed alerts) and description screening + ranking built. Planned stages are marked (Phase N)._
+_Reflects: Phase 4a (2026-10-22): discovery (boards, feeds, Gmail alerts), description screening and ranking, resume variants and fit, and form reading + dry-run filling. Planned stages are marked (Phase N)._
 
 ## 2.1 End-to-end pipeline
 
@@ -317,3 +317,33 @@ flowchart TD
 | `hn` | 1800 s | company | Current month's thread; only comments newer than the cursor |
 | `jsearch:<query>` | `JSearch.interval_s()`: 30 days × queries × pages / (90% of the monthly quota), ≥ 900 s | job | Off until a key is set. Free plan (200/month), 4 queries: each every ~16 h with `date_posted=today`. Pro (10,000/month): every ~19 min. Over 20 h between polls switches to `date_posted=3days`. |
 | `gmail:indeed` | 120 s | job | Only once `gmail login` has run. Gmail search `from:(jobalert / match .indeed.com) after:<cursor>`; each email's plain text is parsed into cards (title, company, location, age). Tracking links are never fetched: company + title → `resolve_by_name`, else a stable Indeed link (`viewjob?jk=` when the tracker carries a job key, otherwise an exact-title search). Baseline: the last 3 days. A sign-in about to lapse (day 6 in Testing mode) or revoked pushes one notice. LinkedIn and the other sites get parsers once their alert emails arrive. |
+
+## 2.12 Applying: form reading, answers and the dry-run filler (Phase 4a)
+1. **Read the form without a browser** (`apply/forms.py`) into one shape, `Field(key, label, kind,
+   required, options)`:
+   - Greenhouse: the job API with `?questions=true`, plus the EEOC block.
+   - Lever: the apply page's HTML (standard inputs, plus custom "cards" whose definitions sit in a hidden
+     `baseTemplate` JSON). Its hCaptcha is detected.
+   - Ashby: the hosted page's `ApiJobPosting` GraphQL.
+2. **Answer each field** (`apply/answers.py`) only from `profile.yaml` / `answers.yaml` rules, ordered
+   specific → general:
+   - Always needs you: legal agreements and attestations (arbitration, privacy notices, AI policies,
+     recording consent), export-control and citizenship questions, "interviewed here before",
+     essays and two-part questions, follow-ups ("If yes…"), questions about another country, "where
+     will you work", "eligible to begin immediately" (F-1 timing).
+   - Empty `misc.*` keys are never guessed.
+   - EEO questions pick a "decline" option.
+   - Dropdown answers must match an option that states it outright ("I am local to NYC" is not a
+     yes).
+3. **Resume:** a per-job tailored PDF, else the best-fit variant, else the master (`answers.resume_for`).
+4. **Fill in Chrome and read back** (`apply/filler.py`):
+   - Playwright drives the installed Chrome with a dedicated profile (`~/.applypilot/chrome-profile`).
+   - Locators per ATS: Greenhouse `#<api name>` plus combobox options; Lever `[name=…]`, native
+     select, radio and checkbox; Ashby `[name=<path>]`, radio and checkbox labels, Yes/No buttons, and
+     a suggestion list for location.
+   - Every field is read back: `filled` only when the page shows the intended value, otherwise
+     `mismatch`/`failed`. Optional fields hidden behind another answer are skipped.
+   - Screenshot and JSON report in `~/.applypilot/dryruns/`.
+   - **No submit code path in this module.** Dry runs don't attach the resume, because Lever and
+     Ashby upload it as soon as it's chosen.
+   - Pages that redirect to the company's own site are reported, not filled.

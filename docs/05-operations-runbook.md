@@ -130,6 +130,16 @@ Build on AC power with the lid open: lid-closed battery sleep kills the session 
 adds them. Confirm them in an interactive `/resumetailor` session (which records them in the resume
 `CLAUDE.md`), then rebuild.
 
+## 5.3d Applying (Phase 4a: plan and dry run; nothing is submitted)
+```bash
+uv run applypilot plan <job id>                  # every field → answer and source, the resume, what needs you
+uv run applypilot fill <job id>                  # dry run in a visible Chrome: fill, read back, screenshot, close
+uv run applypilot fill <job id> --keep-open      # leave the window open to inspect (press Enter to close)
+uv run applypilot fill <job id> --with-resume    # also attach the resume (Lever/Ashby upload it right away)
+uv run pytest -m browser                         # the filler's offline browser tests (~40 s)
+```
+Fill in the empty `misc.*` keys in `~/.applypilot/answers.yaml` to make those questions automatic.
+
 ## 5.4 Background agent (launchd)
 ```bash
 uv run applypilot agent install     # writes ~/Library/LaunchAgents/com.applypilot.poller.plist and loads it

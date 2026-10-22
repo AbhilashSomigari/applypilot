@@ -10,9 +10,31 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 | 1 | Greenhouse/Lever/Ashby sources, tiered poller, seeding, alerts, launchd agent | ✅ Done (2026-10-20); agent installed and running |
 | 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
 | 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21); 3b built (2026-10-22): 6 resume variants, fit in the score, headless tailoring |
-| 4 | Playwright autofill, approve → submit, confirmation detection | Planned |
+| 4 | Playwright autofill, approve → submit, confirmation detection | 🔶 4a done (2026-10-22): plan + dry-run filler; 4b (submit) next |
 | 5 | Phone dashboard, tracker, Workday adapter | Planned |
 | 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-22: Phase 4a, reading application forms and dry-run filling (nothing submitted)
+
+**Built:**
+- `apply/forms.py`: one form shape for Greenhouse (`?questions=true`), Lever (apply-page HTML, card
+  templates, hCaptcha detection) and Ashby (GraphQL `ApiJobPosting`).
+- `apply/answers.py`: answers from `profile.yaml`/`answers.yaml` only; everything else "needs you" with
+  the reason. Six empty `misc.*` keys were added to `answers.yaml` for the user to fill.
+- `apply/filler.py`: Playwright + installed Chrome (dedicated profile). Fills and reads back every
+  field, screenshots, never submits; no resume upload in dry runs.
+- CLI `plan JOB_ID`, `fill JOB_ID [--keep-open] [--with-resume] [--headless]`.
+- Tests: 163 (+38) plus 3 browser tests (`-m browser`), all from real form fixtures and labels.
+
+**Measured:**
+- 60 top-ranked forms read with 0 failures: 458 of 682 required fields (67%) answerable from the
+  user's files.
+- Reviewing every automatic answer found 9 kinds of wrong answers, all fixed (B-023).
+- Dry runs with a fake identity (no real data typed into employer pages), 12 forms (4 per ATS) after
+  fixes: 106 filled and verified, 0 mismatch, 0 failed. Databricks redirects to its own site
+  (reported).
 
 ---
 

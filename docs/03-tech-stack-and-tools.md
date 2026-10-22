@@ -17,6 +17,7 @@ _Reflects: Phase 2, part 1 (2026-10-20). Planned items are marked._
 | **osascript** | macOS | Native banners without any dependency. |
 | **pdfminer.six + pypdf** | ≥ 20231228 / ≥ 4 | Text extraction for the resume-fit scorer (the same libraries `ats_score.py` uses). |
 | **Claude Code CLI, headless** (`claude -p`) | 2.1 | Runs the user's `/resumetailor` skill without a person present (variants and per-job tailoring). JSON output gives the result text and `total_cost_usd`. |
+| **Playwright** (Python) | 1.64 | Drives the installed Google Chrome (`channel="chrome"`, no browser download) with a dedicated persistent profile; fills and reads back application forms. |
 | **launchd + caffeinate** | macOS | Starts at login, restarts on crash (`KeepAlive`), and stops idle sleep from freezing the poller (see B-006). |
 
 ## 3.2 Dev tools
@@ -61,6 +62,5 @@ _Reflects: Phase 2, part 1 (2026-10-20). Planned items are marked._
 | Need | Choice | Phase |
 |---|---|---|
 | LLM calls (screening answers, field mapping) | Provider router copied from ProspectPilot `llm/` (Anthropic, Ollama, mock) | 3–4 |
-| Browser automation | Playwright with a persistent dedicated Chrome profile, headed, N contexts | 4 |
 | Review dashboard | FastAPI + HTMX on localhost, reached from the phone over Tailscale | 5 |
 | Credentials (Workday accounts) | macOS Keychain via `keyring` | 5 |
