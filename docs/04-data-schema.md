@@ -146,6 +146,17 @@ Indexes: `jobs_board (ats, slug) WHERE closed_at IS NULL` and `jobs_new (detecte
 
 Indexes: `(company_key, submitted_at)` for the cap, `(job_id)`.
 
+## 4.3b `prepared`: background-prepared applications
+| Column | Meaning |
+|---|---|
+| `job_id` | PK |
+| `prepared_at` | When it was prepared (an error is retried after a day) |
+| `form_hash` | SHA-1 of the field keys and labels, to tell when a form changed |
+| `needs` / `needs_count` | JSON of what will need the user; count of required ones (drafts not counted) |
+| `drafts` | JSON list of drafts: `key, label, text, facts_used, issues` |
+| `drafted` | 1 if a Claude drafting call was made (counts toward the daily cap) |
+| `captcha`, `error` | CAPTCHA on the page; why the form couldn't be read |
+
 ## 4.4 `probes`: slug-probe cache, one row per company
 
 | Column | Meaning |
@@ -257,6 +268,7 @@ interview → offer | rejected`.
 | `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
 | `apply.max_per_company_30d` | 3 | Submitted + unconfirmed applications allowed per company per 30 days |
 | `apply.confirm_timeout_s` | 180 | After Submit: time to solve a CAPTCHA and reach the confirmation page |
+| `prepare.enabled` / `min_score` / `max_age_days` / `per_cycle` / `interval_s` / `max_drafted_per_day` | `true` / 60 / 3 / 3 / 300 / 15 | Background preparation |
 | `apply.drafts` | `true` | Draft written answers from the resume fact base during `apply` (always reviewed by you) |
 | `feeds.gmail_testing` | `true` | The Google Cloud app is in Testing (7-day sign-in): push a reminder on day 6. Set `false` after publishing to production. |
 

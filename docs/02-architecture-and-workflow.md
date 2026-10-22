@@ -404,3 +404,21 @@ text questions without a rule:
 Live example (2026-10-22, Anthropic "Why Anthropic?"): 18.5 s. Six cited facts (Claude Code skills and
 hooks, the provider router, the EvalForge GPT-4o vs Claude benchmark, $0.03 per incident, p50/p95
 latency); checks passed.
+
+## 2.16 Background preparation (2026-10-22)
+`apply/prepare.py`, run by the agent every `prepare.interval_s` (300 s) beside polling and feeds.
+- **Which jobs:** relevant, open, on Greenhouse/Lever/Ashby, score ≥ `prepare.min_score` (60), posted in
+  the last `prepare.max_age_days` (3), with a description, not applied to, not prepared yet.
+  `prepare.per_cycle` (3) per cycle; unreadable forms are retried after a day.
+- **What it does:** reads the form, plans the answers (`answers.plan` with memory), drafts written
+  answers (at most `prepare.max_drafted_per_day` = 15 drafted forms per day, since each uses Claude
+  usage), and stores drafts plus what will need the user in `prepared`.
+- **What it doesn't do:** fill anything in a browser or send anything. A filled page can't be kept,
+  and Lever/Ashby upload the resume as soon as it's attached.
+- **At apply time:** the form is re-read (one request) and re-planned (instant, so profile and memory
+  changes count). Stored drafts are reused when the question wording is unchanged; only missing
+  ones are drafted.
+- `queue` shows readiness per job: `ready`, `N for you`, `· K drafted`, `form unreadable`.
+- **launchd note:** the agent's PATH is `/usr/bin:/bin:/usr/sbin:/sbin`, so `tailor.claude_bin` is
+  resolved to a full path (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`). Verified on
+  2026-10-22 that `claude -p` signs in under that bare environment.

@@ -50,7 +50,9 @@ def test_parse_result_line_and_failures(tmp_path):
 def test_command_passes_batch_rules_and_limits_tools(tmp_path):
     cmd = tailor.command(_settings(tmp_path), tmp_path / "out")
     prompt = cmd[2]
-    assert cmd[:2] == ["claude", "-p"] and prompt.startswith(f"/resumetailor --batch --out {tmp_path / 'out'}")
+    # resolved to a full path, so it also works under launchd's minimal PATH
+    assert cmd[0].endswith("claude") and cmd[1] == "-p"
+    assert prompt.startswith(f"/resumetailor --batch --out {tmp_path / 'out'}")
     assert "Never call AskUserQuestion" in prompt and "BATCH_RESULT" in prompt
     tools = cmd[cmd.index("--allowedTools") + 1]
     assert "Bash(tectonic:*)" in tools and "Bash(rm" not in tools and "Bash(git" not in tools

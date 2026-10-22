@@ -229,6 +229,10 @@ def run(push: bool = True, feeds: bool = True) -> None:
             loops = [Poller(conn, s, client, push=push).run_forever(on_cycle=_Quiet(_print_cycle))]
             if feeds:
                 loops.append(FeedRunner(conn, s, client, push=push).run_forever(on_cycle=_Quiet(_print_feed_cycle)))
+            if s.prepare.enabled:
+                from applypilot.apply import prepare
+
+                loops.append(prepare.run_forever(conn, s, client))
             await asyncio.gather(*loops)
 
     asyncio.run(go())
@@ -624,7 +628,7 @@ def fill_cmd(job_id: str,
 def apply_cmd(job_id: str, again: bool = False) -> None:
     """Apply to one job with you at the Mac: Chrome fills the form and attaches the resume, outlines what needs
     you, and submits only when you type 'submit'. Logged in `applications`; per-company cap enforced."""
-    from applypilot.apply import answers, drafts, forms, submit
+    from applypilot.apply import answers, drafts, forms, prepare, submit
 
     s = get_settings()
     conn = _conn()
@@ -643,10 +647,14 @@ def apply_cmd(job_id: str, again: bool = False) -> None:
         async with make_client(s) as client:
             form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
         plan = answers.plan(form, answers.resume_for(s, row), row["company"])
-        if s.apply.drafts and any(drafts.draftable(a) for a in plan):
+        found = prepare.stored_drafts(conn, row["id"], plan)  # drafted in the background, wording unchanged
+        have = {d.key for d in found}
+        if s.apply.drafts and any(drafts.draftable(a) and a.field.key not in have for a in plan):
             with console.status("drafting written answers from your verified facts…"):
-                found = await drafts.draft(s, plan, row["company"], row["title"], row["description"] or "")
-            plan = drafts.apply_drafts(plan, found)
+                rest = [a for a in plan if a.field.key not in have]
+                found += await drafts.draft(s, rest, row["company"], row["title"], row["description"] or "")
+        plan = drafts.apply_drafts(plan, found)
+        if found:
             for d in found:
                 console.print(f"[{'green' if d.ok else 'yellow'}]draft[/] {d.label[:70]}"
                               + ("" if d.ok else f"  [yellow]CHECK: {'; '.join(d.issues)}[/]"))
@@ -674,15 +682,23 @@ def queue_cmd(limit: int = 20, hours: float = 24 * 14) -> None:
         "SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL AND ats IN ('greenhouse','lever','ashby')"
         " AND score IS NOT NULL AND posted_at >= ? AND id NOT IN (SELECT job_id FROM applications WHERE status IN"
         " ('submitted','unconfirmed')) ORDER BY score DESC LIMIT ?", (time.time() - hours * 3600, limit * 3)).fetchall()
-    t = Table("#", "score", "posted", "company", "title", "resume")
+    t = Table("#", "score", "posted", "company", "title", "resume", "ready")
     t.add_column("job id", overflow="fold")  # never cut: it's what you copy
     picked = []
     for r in rows:
         if submit.cap_reason(conn, s, r["company"]):
             continue
         picked.append(r["id"])
+        prep = db.get_prepared(conn, r["id"])
+        if prep is None:
+            ready = "[dim]–[/]"
+        elif prep["error"]:
+            ready = "[red]form unreadable[/]"
+        else:
+            n, k = prep["needs_count"] or 0, len(json.loads(prep["drafts"] or "[]"))
+            ready = ("[green]ready[/]" if n == 0 else f"{n} for you") + (f" · {k} drafted" if k else "")
         t.add_row(str(len(picked)), f"{r['score']:.0f}", notify.age(r["posted_at"]).removeprefix("posted "),
-                  r["company"][:20], r["title"][:45], f"{r['variant'] or 'master'} {r['fit'] or ''}", r["id"])
+                  r["company"][:20], r["title"][:45], f"{r['variant'] or 'master'} {r['fit'] or ''}", ready, r["id"])
         if len(picked) >= limit:
             break
     (home() / "last_queue.json").write_text(json.dumps(picked))
@@ -762,6 +778,36 @@ def draft_cmd(job_id: str) -> None:
         console.print("[green]grounding checks passed[/]" if d.ok else "[yellow]CHECK:[/] " + "; ".join(d.issues))
         if d.facts_used:
             console.print("[dim]facts used: " + " | ".join(f[:60] for f in d.facts_used) + "[/]")
+
+
+@app.command("prepare")
+def prepare_cmd(limit: int = 3) -> None:
+    """Prepare the next high-scoring jobs now (read form, plan, draft essays). Sends nothing. The background
+    agent does this every few minutes on its own."""
+    from applypilot.apply import prepare
+
+    _setup_logging()
+    s = get_settings()
+    conn = _conn()
+
+    async def go():
+        async with make_client(s) as client:
+            out = []
+            for r in prepare.candidates(conn, s, limit):
+                with console.status(f"preparing {r['company']}: {r['title'][:50]}…"):
+                    out.append((r, await prepare.prepare(conn, s, client, r)))
+            return out
+
+    done = asyncio.run(go())
+    if not done:
+        console.print(f"nothing to prepare (score ≥ {s.prepare.min_score}, posted ≤ {s.prepare.max_age_days} d,"
+                      " not applied, not prepared)")
+    for r, p in done:
+        if p["error"]:
+            console.print(f"[red]{r['company']}[/]: {p['error']}")
+            continue
+        k = len(json.loads(p["drafts"] or "[]"))
+        console.print(f"{r['company']}: {r['title'][:60]} · {p['needs_count']} for you · {k} drafted")
 
 
 @app.command("resolve")

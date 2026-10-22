@@ -90,6 +90,17 @@ class Apply(BaseModel):
     drafts: bool = True
 
 
+class Prepare(BaseModel):
+    """Background preparation of applications (form read, answers planned, essays drafted). Sends nothing."""
+
+    enabled: bool = True
+    min_score: float = 60
+    max_age_days: float = 3
+    per_cycle: int = 3
+    interval_s: int = 300
+    max_drafted_per_day: int = 15  # each drafted form is one headless Claude call (uses Claude usage)
+
+
 class Settings(BaseModel):
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
@@ -98,6 +109,7 @@ class Settings(BaseModel):
     feeds: Feeds = Field(default_factory=Feeds)
     tailor: Tailor = Field(default_factory=Tailor)
     apply: Apply = Field(default_factory=Apply)
+    prepare: Prepare = Field(default_factory=Prepare)
     max_concurrency: int = 24
     per_host_concurrency: int = 6
     timeout_s: float = 20.0

@@ -16,6 +16,20 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 
 ---
 
+## 2026-10-22: Background preparation (automation item 3)
+- `apply/prepare.py` plus the `prepared` table, run by the agent every 5 min; `prepare` command;
+  `queue` readiness column; `apply` reuses stored drafts. See docs/02 §2.16.
+- No browser pre-fill, by design: page state can't be kept, and Lever/Ashby upload the resume on
+  attach.
+- `claude` is resolved to a full path, because launchd's PATH lacks `~/.local/bin`. Checked: it signs in
+  under a bare environment ($0.03 test).
+- Live: `prepare --limit 2` in 3.8 s (Databricks 3 for you, Everpure 4). After the agent restart it
+  prepared Affirm (1), ElevenLabs (1) and Twitch (14) on its own; no essays among them yet.
+- Tests: 182 (+5), plus 6 browser tests.
+- Committed and pushed earlier: item 2 as `2d03c64`.
+
+---
+
 ## 2026-10-22: Grounded essay drafts (automation item 2)
 - `apply/drafts.py`: headless Claude Code (no tools, JSON schema, $1 cap), facts limited to the
   verified sections of the resume fact base, grounding check on cited phrases and numbers. See

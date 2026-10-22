@@ -81,9 +81,20 @@ def slug(*parts: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", " ".join(parts).lower()).strip("-")[:80]
 
 
+def claude_bin(settings: Settings) -> str:
+    """The claude CLI, also under launchd, whose PATH is only /usr/bin:/bin:/usr/sbin:/sbin."""
+    import shutil
+
+    b = settings.tailor.claude_bin
+    if os.path.isabs(b):
+        return b
+    extra = os.pathsep.join(str(Path(p).expanduser()) for p in ("~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"))
+    return shutil.which(b, path=os.environ.get("PATH", "") + os.pathsep + extra) or b
+
+
 def command(settings: Settings, out: Path) -> list[str]:
     prompt = f"/resumetailor --batch --out {out}\n\n" + BATCH_RULES.format(out=out)
-    cmd = [settings.tailor.claude_bin, "-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits",
+    cmd = [claude_bin(settings), "-p", prompt, "--output-format", "json", "--permission-mode", "acceptEdits",
            "--allowedTools", ALLOWED_TOOLS]
     for d in settings.tailor.repo_dirs:
         if (p := Path(d).expanduser()).is_dir():

@@ -100,7 +100,9 @@ def check(d: Draft, facts: str, posting: str) -> Draft:
 
 
 def command(settings: Settings, prompt: str) -> list[str]:
-    return [settings.tailor.claude_bin, "-p", prompt, "--output-format", "json", "--tools", "",
+    from applypilot.tailor import claude_bin
+
+    return [claude_bin(settings), "-p", prompt, "--output-format", "json", "--tools", "",
             "--system-prompt", SYSTEM, "--json-schema", json.dumps(SCHEMA), "--max-budget-usd", "1"]
 
 

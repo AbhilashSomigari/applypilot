@@ -103,6 +103,18 @@ CREATE TABLE IF NOT EXISTS applications (
     error TEXT
 );
 CREATE INDEX IF NOT EXISTS applications_company ON applications (company_key, submitted_at);
+
+CREATE TABLE IF NOT EXISTS prepared (
+    job_id TEXT PRIMARY KEY,
+    prepared_at REAL NOT NULL,
+    form_hash TEXT,                           -- field keys + labels, to tell when a form changed
+    needs TEXT,                               -- JSON: [{label, note, required}] what will need the user
+    needs_count INTEGER,                      -- required fields only the user can answer (drafts not counted)
+    drafts TEXT,                              -- JSON list of drafts (key, label, text, facts_used, issues)
+    drafted INTEGER NOT NULL DEFAULT 0,       -- 1 = a Claude drafting call was made (counts toward the daily cap)
+    captcha TEXT,
+    error TEXT
+);
 CREATE INDEX IF NOT EXISTS applications_job ON applications (job_id);
 """
 
@@ -316,6 +328,17 @@ def company_applications(conn: sqlite3.Connection, company_key: str, since: floa
     return conn.execute("SELECT COUNT(*) FROM applications WHERE company_key=? AND status IN ('submitted',"
                         " 'unconfirmed') AND COALESCE(submitted_at, started_at) >= ?",
                         (company_key, since)).fetchone()[0]
+
+
+def save_prepared(conn: sqlite3.Connection, job_id: str, now: float, **row) -> None:
+    cols = {"form_hash": None, "needs": None, "needs_count": None, "drafts": None, "drafted": 0, "captcha": None,
+            "error": None, **row}
+    conn.execute(f"INSERT OR REPLACE INTO prepared (job_id, prepared_at, {', '.join(cols)})"
+                 f" VALUES (?, ?, {', '.join('?' * len(cols))})", [job_id, now, *cols.values()])
+
+
+def get_prepared(conn: sqlite3.Connection, job_id: str) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM prepared WHERE job_id=?", (job_id,)).fetchone()
 
 
 def row_job(r: sqlite3.Row) -> Job:
