@@ -230,7 +230,8 @@ class Gmail:
     async def headers(self, msg_id: str) -> dict:
         data = await self._get(f"messages/{msg_id}", format="metadata", metadataHeaders=["From", "Subject", "Date"])
         h = {x["name"].lower(): x["value"] for x in data.get("payload", {}).get("headers", [])}
-        return {"id": msg_id, "internal_date": int(data.get("internalDate", 0)) / 1000, **h}
+        return {"id": msg_id, "internal_date": int(data.get("internalDate", 0)) / 1000,
+                "snippet": data.get("snippet", ""), **h}
 
     async def message(self, msg_id: str) -> tuple[bytes, float]:
         """The full RFC 822 message (what an .eml file holds) and when Gmail received it."""

@@ -16,6 +16,16 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 
 ---
 
+## 2026-10-22: Daily digest and response tracking (automation item 5)
+- `digest.py`: response scan (Gmail read-only, classified, outcome moves forward), digest push plus
+  saved markdown, agent loop; `digest`, `responses`; outcome column. See docs/02 §2.18.
+- First run on real data: 131 new relevant jobs and 39 hard drops in a day, 8 prepared. The agent had
+  drafted 6 grounded written answers on its own.
+- Tests: 199 (+11), plus 7 browser tests.
+- Item 4 committed and pushed as `241fee7`. **All five automation items are now built.**
+
+---
+
 ## 2026-10-22: One-tap approval from the phone (automation item 4), built and off by default
 - `apply/approval.py`, `submit.apply_unattended`, the `approvals` table, `approvals enable/disable/status`.
   See docs/02 §2.17.

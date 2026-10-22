@@ -444,3 +444,24 @@ latency); checks passed.
      what didn't verify.
   4. Confirmation as in `apply`; the result is pushed and logged with `approved_via='phone'`.
 - No inbound network to the Mac: the phone talks only to ntfy.
+
+## 2.18 Daily digest and response tracking (2026-10-22)
+`digest.py`, run by the agent (checks every 10 min, sends once a day at `digest.hour`, 8 local time).
+- **Responses:** for each application submitted in the last `digest.response_window_days` (60), Gmail
+  (read-only) is searched for `"<company>" after:<submitted − 1 h>`, excluding job-alert senders.
+  - Each message is classified once from subject and snippet. Order matters:
+    rejected > assessment > interview > received, because rejections often mention "interview".
+  - `applications.outcome` moves forward only (received → assessment → interview); rejected is final.
+- **Digest:**
+  - Push: title like `ApplyPilot daily: 2 applied · 1 interview · 8 prepared`, then interviews,
+    assessments, rejections, applied, unconfirmed or failed to check, the next prepared job, and
+    pipeline counts.
+  - Full markdown in `~/.applypilot/digests/YYYY-MM-DD.md`.
+  - Covers the time since the last digest (`digest_state.json`).
+- **Commands:** `digest` (show now; `--push` sends it and counts as today's), `responses` (scan now;
+  outcome per application). `applications` gains an outcome column.
+
+First real digest (2026-10-22): 131 new relevant jobs and 39 hard drops in the last day, 8 prepared
+jobs. The agent had drafted 6 written answers on its own in the background (X ×3, impact.com,
+Anthropic, Quora), all grounded with checks passed. One said plainly the user hasn't used Tableau or
+Power BI and pointed to Grafana and Prometheus instead.

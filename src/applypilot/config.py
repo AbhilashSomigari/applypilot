@@ -112,6 +112,14 @@ class Approval(BaseModel):
     token_ttl_h: int = 24
 
 
+class Digest(BaseModel):
+    """The daily summary pushed to the phone (and saved under ~/.applypilot/digests/)."""
+
+    enabled: bool = True
+    hour: int = 8  # local time
+    response_window_days: int = 60  # watch Gmail for replies to applications this recent
+
+
 class Settings(BaseModel):
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
@@ -122,6 +130,7 @@ class Settings(BaseModel):
     apply: Apply = Field(default_factory=Apply)
     prepare: Prepare = Field(default_factory=Prepare)
     approval: Approval = Field(default_factory=Approval)
+    digest: Digest = Field(default_factory=Digest)
     max_concurrency: int = 24
     per_host_concurrency: int = 6
     timeout_s: float = 20.0

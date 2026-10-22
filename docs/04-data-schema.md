@@ -157,6 +157,16 @@ Indexes: `(company_key, submitted_at)` for the cap, `(job_id)`.
 | `drafted` | 1 if a Claude drafting call was made (counts toward the daily cap) |
 | `captcha`, `error` | CAPTCHA on the page; why the form couldn't be read |
 
+## 4.3d `responses`: reply emails to applications
+| Column | Meaning |
+|---|---|
+| `message_id` | PK: Gmail message id (classified once) |
+| `application_id` | The application it replies to |
+| `kind` | `received` / `assessment` / `interview` / `rejected` / `other` |
+| `subject`, `sender`, `received_at` | From the message headers |
+
+`applications.outcome` / `outcome_at` (added by migration) hold the furthest stage seen.
+
 ## 4.3c `approvals`: phone approvals received
 | Column | Meaning |
 |---|---|
@@ -278,6 +288,7 @@ interview → offer | rejected`.
 | `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
 | `apply.max_per_company_30d` | 3 | Submitted + unconfirmed applications allowed per company per 30 days |
 | `apply.confirm_timeout_s` | 180 | After Submit: time to solve a CAPTCHA and reach the confirmation page |
+| `digest.enabled` / `hour` / `response_window_days` | `true` / 8 / 60 | Daily digest and Gmail response tracking |
 | `approval.enabled` / `topic` / `secret` | `false` / generated / generated | One-tap phone approval; `topic` and `secret` are **secrets** (mode-600 config), set by `approvals enable` |
 | `approval.min_supervised` / `max_offers_per_day` / `token_ttl_h` | 5 / 10 / 24 | Supervised applications before activation; push cap; button lifetime |
 | `prepare.enabled` / `min_score` / `max_age_days` / `per_cycle` / `interval_s` / `max_drafted_per_day` | `true` / 60 / 3 / 3 / 300 / 15 | Background preparation |
@@ -311,6 +322,7 @@ Email feeds' `feeds.cursor` is `{"since": <epoch s>, "seen": [message ids]}`: th
 |---|---|
 | `~/.applypilot/chrome-profile/` | The dedicated Chrome profile Playwright uses (cookies and sign-ins for ATS sites), separate from the user's own |
 | `~/.applypilot/answer_memory.yaml` | List of `{question (normalized), example, answer, kind, company (null = any), learned}`; written after confirmed submissions, editable |
+| `~/.applypilot/digests/YYYY-MM-DD.md`, `digest_state.json` | Saved digests; when the last one was sent |
 | `~/.applypilot/approval_cursor.json` | The last phone-approval message processed; the approval stream resumes after it |
 | `~/.applypilot/last_queue.json` | Job ids of the last `queue`, so `apply 3` means row 3 |
 | `~/.applypilot/dryruns/<stamp>-<ats>.png` / `.json` | Full-page screenshot and per-field results of a dry run (`wanted`, `got`, `status`, `error`) |

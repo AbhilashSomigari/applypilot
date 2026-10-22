@@ -104,6 +104,15 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 CREATE INDEX IF NOT EXISTS applications_company ON applications (company_key, submitted_at);
 
+CREATE TABLE IF NOT EXISTS responses (
+    message_id TEXT PRIMARY KEY,              -- Gmail message id (each classified once)
+    application_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,                       -- received | assessment | interview | rejected | other
+    subject TEXT,
+    sender TEXT,
+    received_at REAL NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS approvals (
     message_id TEXT PRIMARY KEY,              -- the ntfy message id (each processed once)
     job_id TEXT NOT NULL,
@@ -129,7 +138,9 @@ CREATE INDEX IF NOT EXISTS applications_job ON applications (job_id);
 # columns added after a table first shipped; connect() adds any that are missing
 MIGRATIONS = {
     "prepared": {"offered_at": "REAL"},
-    "applications": {"approved_via": "TEXT NOT NULL DEFAULT 'mac'"},
+    "applications": {"approved_via": "TEXT NOT NULL DEFAULT 'mac'",
+                     # from response emails (digest.py): received | assessment | interview | rejected
+                     "outcome": "TEXT", "outcome_at": "REAL"},
     "jobs": {
         "source": "TEXT NOT NULL DEFAULT 'ats'",
         # description screening (rank.screen): priority 0-100, visa signals, soft knockouts

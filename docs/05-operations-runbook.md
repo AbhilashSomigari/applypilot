@@ -153,6 +153,8 @@ or essays):
 ```bash
 uv run applypilot draft 3            # preview drafted written answers and their grounding checks
 uv run applypilot prepare            # prepare the next 3 high-scoring jobs now (the agent does it every 5 min)
+uv run applypilot digest             # today's digest now (--push to send it to the phone)
+uv run applypilot responses          # scan Gmail for replies; outcome per application
 uv run applypilot approvals status   # phone approval: active? supervised count, offers today, recent approvals
 uv run applypilot approvals enable   # turn on one-tap Apply pushes (after 5 supervised applications)
 uv run applypilot approvals disable

@@ -235,6 +235,10 @@ def run(push: bool = True, feeds: bool = True) -> None:
                 from applypilot.apply import prepare
 
                 loops.append(prepare.run_forever(conn, s, client))
+            if s.digest.enabled:
+                from applypilot import digest
+
+                loops.append(digest.run_forever(conn, s, client))
             if s.approval.enabled and s.approval.topic and s.approval.secret:
                 from applypilot.apply import approval
 
@@ -720,10 +724,11 @@ def queue_cmd(limit: int = 20, hours: float = 24 * 14) -> None:
 def applications_cmd(limit: int = 30) -> None:
     """Applications so far, newest first."""
     rows = _conn().execute("SELECT * FROM applications ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-    t = Table("when", "status", "company", "title", "you completed", "confirmation / error")
+    t = Table("when", "status", "outcome", "company", "title", "you completed", "confirmation / error")
     for r in rows:
         done = len(json.loads(r["completed_by_user"] or "[]"))
-        t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["started_at"])), r["status"], r["company"][:20],
+        t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["started_at"])), r["status"], r["outcome"] or "",
+                  r["company"][:20],
                   r["title"][:40], str(done), (r["confirmation"] or r["error"] or "")[:50])
     console.print(t)
 
@@ -882,6 +887,59 @@ def approvals_status() -> None:
     t = Table("received", "job", "result")
     for r in conn.execute("SELECT * FROM approvals ORDER BY received_at DESC LIMIT 15"):
         t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["received_at"])), r["job_id"], r["result"] or "…")
+    console.print(t)
+
+
+@app.command("digest")
+def digest_cmd(push: bool = False) -> None:
+    """Show today's digest now (applied, responses, ready jobs, pipeline). --push also sends it to the phone and
+    counts as today's digest. The agent sends one daily at digest.hour on its own."""
+    from applypilot import digest
+
+    s = get_settings()
+    conn = _conn()
+
+    async def go():
+        async with make_client(s) as client:
+            if push:
+                return await digest.send(conn, s, client)
+            if gmail.token_info():
+                await digest.scan_responses(conn, s, client)
+            return digest.build(conn, s)
+
+    from applypilot import gmail
+
+    d = asyncio.run(go())
+    console.print(f"[bold]{d.title}[/]\n")
+    console.print(d.markdown)
+    if push:
+        console.print("[green]pushed[/] and saved under ~/.applypilot/digests/")
+
+
+@app.command("responses")
+def responses_cmd() -> None:
+    """Scan Gmail (read-only) for replies to your applications and show each application's outcome."""
+    from applypilot import digest, gmail
+
+    s = get_settings()
+    conn = _conn()
+    if not gmail.token_info():
+        console.print("not signed in to Gmail: run `applypilot gmail login`")
+        raise typer.Exit(1)
+
+    async def go():
+        async with make_client(s) as client:
+            return await digest.scan_responses(conn, s, client)
+
+    new = asyncio.run(go())
+    console.print(f"{len(new)} new response email(s)")
+    t = Table("applied", "company", "title", "outcome", "latest reply")
+    for r in conn.execute("SELECT * FROM applications WHERE status IN ('submitted','unconfirmed')"
+                          " ORDER BY submitted_at DESC LIMIT 40"):
+        last = conn.execute("SELECT subject FROM responses WHERE application_id=? AND kind != 'other'"
+                            " ORDER BY received_at DESC LIMIT 1", (r["id"],)).fetchone()
+        t.add_row(time.strftime("%m-%d", time.localtime(r["submitted_at"] or r["started_at"])), r["company"][:20],
+                  r["title"][:40], r["outcome"] or "no reply yet", (last[0] if last else "")[:50])
     console.print(t)
 
 
