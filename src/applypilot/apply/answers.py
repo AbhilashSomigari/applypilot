@@ -234,9 +234,20 @@ def answer(f: Field, profile: dict, ans: dict, resume: Path | None) -> Answer:
     return Answer(f, None, "skip")
 
 
-def plan(form: Form, resume: Path | None) -> list[Answer]:
+def plan(form: Form, resume: Path | None, company: str = "") -> list[Answer]:
+    """Answers for every field: rules over the user's files first, then answers they gave on earlier forms."""
+    from applypilot.apply import memory
+
     profile, ans = load_user()
-    return [answer(f, profile, ans, resume) for f in form.fields]
+    remembered = memory.load()
+    out = []
+    for f in form.fields:
+        a = answer(f, profile, ans, resume)
+        if a.source == "needs_you" and (m := memory.recall(f, company, remembered)) is not None:
+            value = [v.strip() for v in m.answer.split(",")] if f.kind == "multiselect" else m.answer
+            a = Answer(f, value, "memory", f"you answered this on {m.learned}")
+        out.append(a)
+    return out
 
 
 def resume_for(settings, row) -> Path | None:

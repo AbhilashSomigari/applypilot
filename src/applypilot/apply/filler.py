@@ -21,6 +21,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from applypilot.apply.answers import Answer
+from applypilot.apply.forms import Field
 from applypilot.config import home
 
 PROFILE_DIR = "chrome-profile"  # a dedicated Chrome profile under ~/.applypilot, separate from the user's own
@@ -200,6 +201,58 @@ def css_str(s: str) -> str:
 
 def _check(want: str, got: str) -> tuple[str, str]:
     return ("filled" if _norm(want) == _norm(got) else "mismatch"), got
+
+
+async def read_value(page, ats: str, f: Field) -> str:
+    """What a field holds right now, without changing it (to learn what the user typed or picked)."""
+    key = f.key.rstrip("[]")
+    if f.kind == "file":
+        return ""
+    if ats == "greenhouse":
+        el = page.locator(f'[id="{css_str(key)}"]')
+        if await el.count() == 0:
+            return ""
+        if f.kind in ("select", "multiselect"):
+            box = el.locator("xpath=ancestor::*[contains(@class,'select__control')][1]")
+            text = (await box.inner_text()).strip() if await box.count() else ""
+            return "" if re.fullmatch(r"select\.*", text, re.I) else text
+        return (await el.input_value()).strip()
+    if ats == "lever":
+        els = page.locator(f'[name="{css_str(f.key)}"]')
+        if await els.count() == 0:
+            return ""
+        tag = await els.first.evaluate("e => e.tagName + ':' + (e.type || '')")
+        if tag.startswith("SELECT"):
+            text = await els.first.evaluate("e => e.options[e.selectedIndex] ? e.options[e.selectedIndex].text : ''")
+            return "" if text.lower().startswith("select") else text.strip()
+        if tag.endswith(("radio", "checkbox")):
+            return await page.eval_on_selector_all(f'[name="{css_str(f.key)}"]:checked',
+                                                   "es => es.map(e => e.value).join(', ')")
+        return (await els.first.input_value()).strip()
+    # ashby
+    if f.kind in ("select", "multiselect"):
+        kind = "checkbox" if f.kind == "multiselect" else "radio"
+        return await page.evaluate(
+            """([key, kind]) => [...document.querySelectorAll(`input[type=${kind}]:checked`)]
+                .filter(e => (e.name || '').endsWith('_' + key) || (e.id || '').includes('_' + key + '-'))
+                .map(e => { const l = document.querySelector(`label[for="${CSS.escape(e.id)}"]`);
+                            return l ? l.innerText.trim() : e.value; }).join(', ')""", [key, kind])
+    if f.kind == "boolean":
+        box = await _container(page, f.label)
+        if box is None:
+            return ""
+        for name in ("Yes", "No"):
+            btn = box.get_by_role("button", name=re.compile(rf"^{name}$", re.I))
+            if await btn.count() and await btn.first.evaluate(
+                    "e => e.getAttribute('aria-pressed') === 'true' || /active|selected/i.test(e.className)"):
+                return name
+        return ""
+    el = page.locator(f'[name="{css_str(key)}"], [id="{css_str(key)}"]')
+    if await el.count():
+        return (await el.first.input_value()).strip()
+    box = await _container(page, f.label)
+    inp = box.locator("input:not([type=file]):not([type=radio]):not([type=checkbox])").first if box else None
+    return (await inp.input_value()).strip() if inp is not None and await inp.count() else ""
 
 
 FILLERS = {"greenhouse": _gh, "lever": _lever, "ashby": _ashby}

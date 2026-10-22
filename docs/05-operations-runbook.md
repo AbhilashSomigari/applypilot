@@ -143,11 +143,19 @@ Fill in the empty `misc.*` keys in `~/.applypilot/answers.yaml` to make those qu
 ### Applying for real (Phase 4b): run in your own Terminal, since it waits for your typing
 ```bash
 cd ~/Documents/applypilot && export PYTHONPATH=src
-uv run applypilot queue                     # next best jobs: score, posted, resume variant, job id
-uv run applypilot plan <job id>             # optional preview
-uv run applypilot apply <job id>            # fills Chrome; you complete the red-outlined fields; type 'submit'
+uv run applypilot queue                     # next best jobs, numbered: score, posted, resume variant, job id
+uv run applypilot plan 3                    # optional preview of row 3 (or pass the full job id)
+uv run applypilot apply 3                   # fills Chrome; you complete the red-outlined fields; type 'submit'
 uv run applypilot applications              # the log
 ```
+After a confirmed submission, `apply` offers to remember the answers you typed (never legal notices
+or essays):
+```bash
+uv run applypilot memory list        # what's remembered, and for which company
+uv run applypilot memory forget 4    # delete entry 4 (or edit ~/.applypilot/answer_memory.yaml)
+```
+Row numbers refer to the last `queue` you ran (saved in `~/.applypilot/last_queue.json`). The job id
+column wraps instead of truncating in narrow terminals.
 Submit happens only when you type `submit`; `skip` cancels. Solve any CAPTCHA in the window. A form
 that shows errors after Submit waits for you to fix them. Screenshots go to
 `~/.applypilot/applications/`.

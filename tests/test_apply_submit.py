@@ -82,3 +82,27 @@ def test_per_company_cap(conn):
                        status="abandoned", started_at=now)
     assert submit.cap_reason(conn, s, "ACME") == "already 2 applications to ACME in 30 days (cap 2)"
     assert submit.cap_reason(conn, s, "Globex") is None
+
+
+@pytest.mark.browser
+@pytest.mark.skipif(not CHROME, reason="needs a local Chrome")
+async def test_answers_the_user_gave_are_offered_to_memory_after_a_confirmed_submit(tmp_path, monkeypatch, conn):
+    from applypilot.apply import answers, memory
+
+    row, form, plan = _setup(tmp_path, monkeypatch, conn, require_agree=False)
+    # the user picked "2-3" in the window (pre-selected here); the privacy checkbox is never remembered
+    page = (tmp_path / "form.html").read_text().replace(
+        '<div id="err">', '<select name="years"><option>Select ...</option><option>0-1</option>'
+                          '<option selected>2-3</option></select><div id="err">')
+    (tmp_path / "form.html").write_text(page)
+    years = Field("years", "How many years of Python experience do you have?", "select", True, ["0-1", "2-3"])
+    plan.append(Answer(years, None, "needs_you", "no rule for this required question"))
+    said = []
+    res = await submit.apply(conn, Settings(), row, form, plan, ask=_asker("submit", ""), headless=True,
+                             say=said.append)
+    assert res["status"] == "submitted"
+    assert any("How many years of Python" in line and "2-3" in line for line in said)
+    [m] = memory.load()
+    assert (m.answer, m.company) == ("2-3", None)
+    again = answers.plan(Form("lever", "u", [years]), None, "Globex")
+    assert (again[0].value, again[0].source) == ("2-3", "memory")

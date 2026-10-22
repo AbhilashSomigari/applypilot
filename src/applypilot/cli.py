@@ -34,10 +34,23 @@ app.add_typer(seed_app, name="seed")
 app.add_typer(feeds_app, name="feeds")
 variants_app = typer.Typer(no_args_is_help=True, help="The 6 pre-built resume variants used for fit scoring.")
 app.add_typer(variants_app, name="variants")
+memory_app = typer.Typer(no_args_is_help=True, help="Answers you gave on forms, reused for the same question.")
+app.add_typer(memory_app, name="memory")
 gmail_app = typer.Typer(no_args_is_help=True, help="Read-only Gmail access for job-alert emails.")
 app.add_typer(gmail_app, name="gmail")
 console = Console(emoji=False)  # job ids like "ashby:snowflake:…" contain emoji codes
 REPO = Path(__file__).resolve().parents[2]
+
+
+def _job_ref(ref: str) -> str:
+    """A job id, or a row number from the last `applypilot queue`."""
+    if ref.isdigit():
+        path = home() / "last_queue.json"
+        ids = json.loads(path.read_text()) if path.exists() else []
+        if not 1 <= int(ref) <= len(ids):
+            raise typer.BadParameter(f"no row {ref} in the last queue (run `applypilot queue` first)")
+        return ids[int(ref) - 1]
+    return ref
 
 
 def _conn():
@@ -521,7 +534,7 @@ def tailor_cmd(job_id: str) -> None:
 
     s = get_settings()
     conn = _conn()
-    row = db.get_job(conn, job_id)
+    row = db.get_job(conn, job_id := _job_ref(job_id))
     if row is None:
         raise typer.BadParameter(f"no job {job_id}")
     if not row["description"]:
@@ -542,7 +555,7 @@ def plan_cmd(job_id: str) -> None:
     from applypilot.apply import answers, forms
 
     s = get_settings()
-    row = db.get_job(_conn(), job_id)
+    row = db.get_job(_conn(), job_id := _job_ref(job_id))
     if row is None:
         raise typer.BadParameter(f"no job {job_id}")
 
@@ -556,7 +569,7 @@ def plan_cmd(job_id: str) -> None:
         console.print(f"[red]can't read the form:[/] {e}")
         raise typer.Exit(1) from None
     resume = answers.resume_for(s, row)
-    plan = answers.plan(form, resume)
+    plan = answers.plan(form, resume, row["company"])
     t = Table("", "question", "answer", "from")
     for a in plan:
         if a.source == "skip":
@@ -583,14 +596,14 @@ def fill_cmd(job_id: str,
     from applypilot.apply import answers, filler, forms
 
     s = get_settings()
-    row = db.get_job(_conn(), job_id)
+    row = db.get_job(_conn(), job_id := _job_ref(job_id))
     if row is None:
         raise typer.BadParameter(f"no job {job_id}")
 
     async def go():
         async with make_client(s) as client:
             form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
-        plan = answers.plan(form, answers.resume_for(s, row))
+        plan = answers.plan(form, answers.resume_for(s, row), row["company"])
         return await filler.fill(row["ats"], form.url, plan, with_resume=with_resume, headless=headless,
                                  keep_open=keep_open)
 
@@ -615,7 +628,7 @@ def apply_cmd(job_id: str, again: bool = False) -> None:
 
     s = get_settings()
     conn = _conn()
-    row = db.get_job(conn, job_id)
+    row = db.get_job(conn, job_id := _job_ref(job_id))
     if row is None:
         raise typer.BadParameter(f"no job {job_id}")
     if (prev := db.applied_to(conn, job_id)) and not again:
@@ -629,7 +642,7 @@ def apply_cmd(job_id: str, again: bool = False) -> None:
     async def go():
         async with make_client(s) as client:
             form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
-        plan = answers.plan(form, answers.resume_for(s, row))
+        plan = answers.plan(form, answers.resume_for(s, row), row["company"])
         res = await submit.apply(conn, s, row, form, plan, say=console.print)
         if res["status"] == "submitted":
             async with httpx.AsyncClient() as client:
@@ -654,18 +667,21 @@ def queue_cmd(limit: int = 20, hours: float = 24 * 14) -> None:
         "SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL AND ats IN ('greenhouse','lever','ashby')"
         " AND score IS NOT NULL AND posted_at >= ? AND id NOT IN (SELECT job_id FROM applications WHERE status IN"
         " ('submitted','unconfirmed')) ORDER BY score DESC LIMIT ?", (time.time() - hours * 3600, limit * 3)).fetchall()
-    t = Table("score", "posted", "company", "title", "resume", "job id")
-    shown = 0
+    t = Table("#", "score", "posted", "company", "title", "resume")
+    t.add_column("job id", overflow="fold")  # never cut: it's what you copy
+    picked = []
     for r in rows:
         if submit.cap_reason(conn, s, r["company"]):
             continue
-        t.add_row(f"{r['score']:.0f}", notify.age(r["posted_at"]).removeprefix("posted "), r["company"][:20],
-                  r["title"][:45], f"{r['variant'] or 'master'} {r['fit'] or ''}", r["id"])
-        shown += 1
-        if shown >= limit:
+        picked.append(r["id"])
+        t.add_row(str(len(picked)), f"{r['score']:.0f}", notify.age(r["posted_at"]).removeprefix("posted "),
+                  r["company"][:20], r["title"][:45], f"{r['variant'] or 'master'} {r['fit'] or ''}", r["id"])
+        if len(picked) >= limit:
             break
+    (home() / "last_queue.json").write_text(json.dumps(picked))
     console.print(t)
-    console.print("apply with: applypilot apply <job id>   (preview: applypilot plan <job id>)")
+    console.print("apply with: applypilot apply <#>  (the number in the first column, or the full job id)"
+                  "   preview: applypilot plan <#>")
 
 
 @app.command("applications")
@@ -678,6 +694,31 @@ def applications_cmd(limit: int = 30) -> None:
         t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["started_at"])), r["status"], r["company"][:20],
                   r["title"][:40], str(done), (r["confirmation"] or r["error"] or "")[:50])
     console.print(t)
+
+
+@memory_app.command("list")
+def memory_list() -> None:
+    """Every remembered answer (stored in ~/.applypilot/answer_memory.yaml)."""
+    from applypilot.apply import memory
+
+    t = Table("#", "question", "answer", "only for", "learned")
+    for i, m in enumerate(memory.load(), 1):
+        t.add_row(str(i), m.example[:70], m.answer[:40], m.company or "any company", m.learned)
+    console.print(t)
+    console.print(f"edit or delete entries in {memory.path()}, or: applypilot memory forget <#>")
+
+
+@memory_app.command("forget")
+def memory_forget(number: int) -> None:
+    """Delete one remembered answer by its number in `memory list`."""
+    from applypilot.apply import memory
+
+    items = memory.load()
+    if not 1 <= number <= len(items):
+        raise typer.BadParameter(f"no entry {number}")
+    gone = items.pop(number - 1)
+    memory.save(items)
+    console.print(f"forgot: {gone.example[:80]} -> {gone.answer}")
 
 
 @app.command("resolve")

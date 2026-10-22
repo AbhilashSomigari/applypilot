@@ -16,6 +16,31 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 
 ---
 
+## 2026-10-22: README rewritten; pushed to a private GitHub repo
+- README restructured: how it works (diagram), each stage, measured results, ground rules, setup,
+  daily use, command reference, data locations, layout, development, roadmap.
+- Whole history scanned for secrets and personal data before the first push. Pushed to a **private**
+  repo on the user's request.
+
+---
+
+## 2026-10-22: Answer memory, plus a numbered queue
+
+**Asked by the user:** "how to automate everything". Plan agreed: start with item 1, remembering
+answers. Later: grounded essay drafts, background pre-fill, phone approval, daily digest. Legal
+notices stay "always ask"; no unattended submit and no CAPTCHA solving.
+
+**Built:**
+- `apply/memory.py`, `filler.read_value`, capture and offer in `apply`, reuse in `answers.plan`,
+  `memory list/forget`. See docs/02 §2.14.
+- `queue` numbers its rows (`apply 3`); the job id column wraps instead of truncating (the user's
+  report: "job id column is only showing 10 characters followed by dots").
+- Tests: 170 (+6), plus 6 browser tests (+1, end to end: learn after submit, reuse on a new form).
+- Bug caught in testing: "referr" (for "referred by") matched inside "p**referr**ed office"; now
+  word-bounded.
+
+---
+
 ## 2026-10-22: Phase 4b, applying with the user at the Mac
 
 **Decisions (user, 2026-10-22):** approve at the Mac (option b); legal notices always ask; commit 4a

@@ -368,3 +368,19 @@ flowchart TD
 
 `applypilot queue` lists the next best jobs (open, relevant, GH/Lever/Ashby, not applied, under the
 cap) with their resume variant; `applypilot applications` lists the log.
+
+## 2.14 Answer memory (2026-10-22)
+`apply/memory.py`, stored in `~/.applypilot/answer_memory.yaml` (plain YAML the user can edit).
+- **Learn:** when the user types `submit`, `apply` reads (`filler.read_value`) what each outlined
+  question, failed field or remembered answer now holds. After a **confirmed** submission it lists the
+  answers the user gave or changed and asks which to remember (Enter = all, numbers to skip, `n` =
+  none).
+- **Never stored:** legal notices and attestations (the user's "always ask"), essays (text areas over
+  120 chars), files.
+- **One company only:** questions about the user's history with a company ("interviewed / applied
+  before", "currently a … employee", "referred", "relatives").
+- **Reuse (`answers.plan`):** only where the rules have no answer (rules over `answers.yaml` win).
+  - Matching: wording normalized (company names → `<company>`, punctuation and "required" removed),
+    then exact or ≥ 0.92 similar.
+  - Dropdowns reuse an answer only if the form offers that exact option.
+  - Reused answers are filled and read back like any other (source `memory`).

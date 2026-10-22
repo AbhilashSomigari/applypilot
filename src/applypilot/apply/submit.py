@@ -17,8 +17,9 @@ from dataclasses import asdict
 from pathlib import Path
 
 from applypilot import db
+from applypilot.apply import memory
 from applypilot.apply.answers import Answer
-from applypilot.apply.filler import _visible, css_str, fill_page, launch, open_page
+from applypilot.apply.filler import _visible, css_str, fill_page, launch, open_page, read_value
 from applypilot.config import Settings, home
 from applypilot.seeds import company_key
 
@@ -100,6 +101,21 @@ async def wait_confirmation(page, timeout_s: float) -> tuple[str, str]:
     return "timeout", page.url
 
 
+async def _offer_to_remember(learn: list, company: str, ask, say) -> None:
+    if not learn:
+        return
+    say("\nRemember these answers for the same question on future forms? (legal notices are never stored)")
+    for i, (f, v) in enumerate(learn, 1):
+        say(f"  {i}. {f.label[:80]}  ->  {v[:60]}")
+    reply = (await ask("Enter = remember all · numbers to skip (e.g. 2,3) · n = none: ")).strip().lower()
+    if reply in ("n", "no", "none"):
+        return
+    skip = {int(x) for x in re.findall(r"\d+", reply)}
+    items = memory.load()
+    kept = [memory.remember(f, v, company, items) for i, (f, v) in enumerate(learn, 1) if i not in skip]
+    say(f"remembered {sum(m is not None for m in kept)} answer(s) in {memory.path()}")
+
+
 async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=None, headless: bool = False,
                 say=print) -> dict:
     """The whole interactive application for one job. Returns the stored application row as a dict."""
@@ -146,6 +162,14 @@ async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=
                 if choice != "submit":
                     continue
                 values = await _page_values(page)
+                # what the user entered for the questions they were asked (or changed), to offer to remember
+                learn = []
+                for a in plan:
+                    if a.source in ("needs_you", "memory") or by_key[a.field.key].status in ("failed", "mismatch"):
+                        got = await read_value(page, row["ats"], a.field)
+                        prev = ", ".join(a.value) if isinstance(a.value, list) else (a.value or "")
+                        if memory.storable(a.field, got) and got != prev:
+                            learn.append((a.field, got))
                 shot1 = out / f"{stamp}-{row['ats']}-filled.png"
                 await page.screenshot(path=str(shot1), full_page=True)
                 if not await _click_submit(page):
@@ -161,7 +185,9 @@ async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=
                           "completed_by_user": json.dumps(completed), "screenshot_filled": str(shot1),
                           "screenshot_after": str(shot2)}
                 if status == "submitted":
-                    return finish("submitted", submitted_at=time.time(), confirmation=evidence, **record)
+                    res = finish("submitted", submitted_at=time.time(), confirmation=evidence, **record)
+                    await _offer_to_remember(learn, row["company"], ask, say)
+                    return res
                 say("No confirmation within the time limit. Check the window; the application is logged as "
                     "'unconfirmed'.")
                 return finish("unconfirmed", submitted_at=time.time(), confirmation=evidence, **record)
