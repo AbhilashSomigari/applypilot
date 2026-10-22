@@ -140,6 +140,18 @@ uv run pytest -m browser                         # the filler's offline browser 
 ```
 Fill in the empty `misc.*` keys in `~/.applypilot/answers.yaml` to make those questions automatic.
 
+### Applying for real (Phase 4b): run in your own Terminal, since it waits for your typing
+```bash
+cd ~/Documents/applypilot && export PYTHONPATH=src
+uv run applypilot queue                     # next best jobs: score, posted, resume variant, job id
+uv run applypilot plan <job id>             # optional preview
+uv run applypilot apply <job id>            # fills Chrome; you complete the red-outlined fields; type 'submit'
+uv run applypilot applications              # the log
+```
+Submit happens only when you type `submit`; `skip` cancels. Solve any CAPTCHA in the window. A form
+that shows errors after Submit waits for you to fix them. Screenshots go to
+`~/.applypilot/applications/`.
+
 ## 5.4 Background agent (launchd)
 ```bash
 uv run applypilot agent install     # writes ~/Library/LaunchAgents/com.applypilot.poller.plist and loads it

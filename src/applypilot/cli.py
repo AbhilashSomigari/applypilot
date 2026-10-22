@@ -36,7 +36,7 @@ variants_app = typer.Typer(no_args_is_help=True, help="The 6 pre-built resume va
 app.add_typer(variants_app, name="variants")
 gmail_app = typer.Typer(no_args_is_help=True, help="Read-only Gmail access for job-alert emails.")
 app.add_typer(gmail_app, name="gmail")
-console = Console()
+console = Console(emoji=False)  # job ids like "ashby:snowflake:…" contain emoji codes
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -605,6 +605,79 @@ def fill_cmd(job_id: str,
     n = collections.Counter(r.status for r in results)
     console.print(f"filled {n['filled']} · mismatch {n['mismatch']} · failed {n['failed']} · needs you "
                   f"{n['needs_you']} · screenshot {shot}  (nothing was submitted)")
+
+
+@app.command("apply")
+def apply_cmd(job_id: str, again: bool = False) -> None:
+    """Apply to one job with you at the Mac: Chrome fills the form and attaches the resume, outlines what needs
+    you, and submits only when you type 'submit'. Logged in `applications`; per-company cap enforced."""
+    from applypilot.apply import answers, forms, submit
+
+    s = get_settings()
+    conn = _conn()
+    row = db.get_job(conn, job_id)
+    if row is None:
+        raise typer.BadParameter(f"no job {job_id}")
+    if (prev := db.applied_to(conn, job_id)) and not again:
+        when = time.strftime("%Y-%m-%d", time.localtime(prev["started_at"]))
+        console.print(f"already applied ({prev['status']}, {when}). Use --again to apply anyway.")
+        raise typer.Exit(1)
+    if reason := submit.cap_reason(conn, s, row["company"]):
+        console.print(f"[yellow]not applying: {reason}[/] (apply.max_per_company_30d in config.yaml)")
+        raise typer.Exit(1)
+
+    async def go():
+        async with make_client(s) as client:
+            form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
+        plan = answers.plan(form, answers.resume_for(s, row))
+        res = await submit.apply(conn, s, row, form, plan, say=console.print)
+        if res["status"] == "submitted":
+            async with httpx.AsyncClient() as client:
+                await notify.message(client, s, f"Applied: {row['company']}", f"{row['title']} · {res['confirmation']}")
+        return res
+
+    res = asyncio.run(go())
+    color = {"submitted": "green", "unconfirmed": "yellow"}.get(res["status"], "red")
+    console.print(f"[{color}]{res['status']}[/] {res.get('confirmation') or res.get('error') or ''}")
+    if res.get("screenshot_after"):
+        console.print(f"screenshots: {res['screenshot_filled']}  {res['screenshot_after']}")
+
+
+@app.command("queue")
+def queue_cmd(limit: int = 20, hours: float = 24 * 14) -> None:
+    """Best jobs to apply to next: open, relevant, on Greenhouse/Lever/Ashby, not applied to, under the company cap."""
+    from applypilot.apply import submit
+
+    s = get_settings()
+    conn = _conn()
+    rows = conn.execute(
+        "SELECT * FROM jobs WHERE relevant=1 AND closed_at IS NULL AND ats IN ('greenhouse','lever','ashby')"
+        " AND score IS NOT NULL AND posted_at >= ? AND id NOT IN (SELECT job_id FROM applications WHERE status IN"
+        " ('submitted','unconfirmed')) ORDER BY score DESC LIMIT ?", (time.time() - hours * 3600, limit * 3)).fetchall()
+    t = Table("score", "posted", "company", "title", "resume", "job id")
+    shown = 0
+    for r in rows:
+        if submit.cap_reason(conn, s, r["company"]):
+            continue
+        t.add_row(f"{r['score']:.0f}", notify.age(r["posted_at"]).removeprefix("posted "), r["company"][:20],
+                  r["title"][:45], f"{r['variant'] or 'master'} {r['fit'] or ''}", r["id"])
+        shown += 1
+        if shown >= limit:
+            break
+    console.print(t)
+    console.print("apply with: applypilot apply <job id>   (preview: applypilot plan <job id>)")
+
+
+@app.command("applications")
+def applications_cmd(limit: int = 30) -> None:
+    """Applications so far, newest first."""
+    rows = _conn().execute("SELECT * FROM applications ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
+    t = Table("when", "status", "company", "title", "you completed", "confirmation / error")
+    for r in rows:
+        done = len(json.loads(r["completed_by_user"] or "[]"))
+        t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["started_at"])), r["status"], r["company"][:20],
+                  r["title"][:40], str(done), (r["confirmation"] or r["error"] or "")[:50])
+    console.print(t)
 
 
 @app.command("resolve")

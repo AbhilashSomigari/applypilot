@@ -82,6 +82,12 @@ class Tailor(BaseModel):
     repo_dirs: list[str] = Field(default_factory=list)
 
 
+class Apply(BaseModel):
+    # recruiters notice a spray pattern; the plan caps applications per company per 30 days
+    max_per_company_30d: int = 3
+    confirm_timeout_s: int = 180  # after Submit: time to solve a CAPTCHA and reach the confirmation page
+
+
 class Settings(BaseModel):
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
@@ -89,6 +95,7 @@ class Settings(BaseModel):
     tiers: Tiers = Field(default_factory=Tiers)
     feeds: Feeds = Field(default_factory=Feeds)
     tailor: Tailor = Field(default_factory=Tailor)
+    apply: Apply = Field(default_factory=Apply)
     max_concurrency: int = 24
     per_host_concurrency: int = 6
     timeout_s: float = 20.0

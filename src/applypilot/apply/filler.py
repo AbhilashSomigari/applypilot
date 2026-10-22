@@ -217,42 +217,59 @@ async def _visible(page, ats: str, a: Answer) -> bool:
     return await loc.count() > 0 and await loc.first.is_visible()
 
 
+async def open_page(ctx, url: str):
+    """Open the application in the session's tab and wait for the form."""
+    page = ctx.pages[0] if ctx.pages else await ctx.new_page()
+    await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+    # wait for the form itself; some boards never go network-idle (chat widgets, analytics)
+    await page.locator("form input, input[name], input[id]").first.wait_for(timeout=30_000)
+    await page.wait_for_timeout(1500)
+    if not _same_site(url, page.url):
+        raise RuntimeError(f"redirected to {page.url}: the company hosts its own application page")
+    return page
+
+
+async def fill_page(page, ats: str, plan: list[Answer], with_resume: bool) -> list[FillResult]:
+    """Fill every planned answer on an open page and read each one back."""
+    results: list[FillResult] = []
+    filler = FILLERS[ats]
+    for a in plan:
+        r = FillResult(a.field.label[:80], a.field.key, _want(a))
+        if a.source == "needs_you":
+            r.status, r.error = "needs_you", a.note
+        elif a.source == "skip" or a.value in (None, "", []):
+            r.status = "skipped"
+        else:
+            try:
+                if not a.field.required and not await _visible(page, ats, a):
+                    r.status, r.error = "skipped", "not shown on the page (depends on another answer)"
+                    results.append(r)
+                    continue
+                r.status, r.got = await filler(page, a, with_resume)
+            except Exception as e:  # one bad field must not stop the rest; it's reported
+                r.status, r.error = "failed", f"{type(e).__name__}: {str(e)[:160]}"
+        results.append(r)
+    return results
+
+
+def launch(p, headless: bool):
+    return p.chromium.launch_persistent_context(
+        str(home() / PROFILE_DIR), channel="chrome", headless=headless, viewport={"width": 1280, "height": 900})
+
+
 async def fill(ats: str, url: str, plan: list[Answer], *, with_resume: bool = False, headless: bool = False,
                keep_open: bool = False, out_dir: Path | None = None) -> tuple[list[FillResult], Path]:
-    """Open `url` in a dedicated Chrome profile, fill every planned answer, verify, screenshot. No submit."""
+    """Dry run: open `url` in the dedicated Chrome profile, fill every planned answer, verify, screenshot.
+    No submit."""
     from playwright.async_api import async_playwright
 
     out_dir = out_dir or home() / "dryruns"
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
-    results: list[FillResult] = []
     async with async_playwright() as p:
-        ctx = await p.chromium.launch_persistent_context(
-            str(home() / PROFILE_DIR), channel="chrome", headless=headless, viewport={"width": 1280, "height": 900})
-        page = ctx.pages[0] if ctx.pages else await ctx.new_page()
-        await page.goto(url, wait_until="domcontentloaded", timeout=60_000)
-        # wait for the form itself; some boards never go network-idle (chat widgets, analytics)
-        await page.locator("form input, input[name], input[id]").first.wait_for(timeout=30_000)
-        await page.wait_for_timeout(1500)
-        if not _same_site(url, page.url):
-            raise RuntimeError(f"redirected to {page.url}: the company hosts its own application page")
-        filler = FILLERS[ats]
-        for a in plan:
-            r = FillResult(a.field.label[:80], a.field.key, _want(a))
-            if a.source == "needs_you":
-                r.status, r.error = "needs_you", a.note
-            elif a.source == "skip" or a.value in (None, "", []):
-                r.status = "skipped"
-            else:
-                try:
-                    if not a.field.required and not await _visible(page, ats, a):
-                        r.status, r.error = "skipped", "not shown on the page (depends on another answer)"
-                        results.append(r)
-                        continue
-                    r.status, r.got = await filler(page, a, with_resume)
-                except Exception as e:  # one bad field must not stop the rest; it's reported
-                    r.status, r.error = "failed", f"{type(e).__name__}: {str(e)[:160]}"
-            results.append(r)
+        ctx = await launch(p, headless)
+        page = await open_page(ctx, url)
+        results = await fill_page(page, ats, plan, with_resume)
         shot = out_dir / f"{stamp}-{ats}.png"
         await page.screenshot(path=str(shot), full_page=True)
         (out_dir / f"{stamp}-{ats}.json").write_text(json.dumps(

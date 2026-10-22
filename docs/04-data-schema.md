@@ -131,6 +131,21 @@ Index: `boards_due (next_poll) WHERE tier NOT IN ('dead','blocked')`.
 
 Indexes: `jobs_board (ats, slug) WHERE closed_at IS NULL` and `jobs_new (detected_at) WHERE relevant = 1`.
 
+## 4.3a `applications`: one row per application attempt (Phase 4b)
+| Column | Meaning |
+|---|---|
+| `id` | Autoincrement |
+| `job_id`, `company`, `company_key`, `title`, `ats`, `url` | The job; `company_key` is the normalized name the per-company cap counts by |
+| `status` | `started` → `submitted` (confirmation seen) / `unconfirmed` (Submit clicked, no confirmation in time) / `abandoned` (user typed skip) / `failed` (an error, in `error`) |
+| `resume` | The PDF attached |
+| `answers` | JSON: `filled` (each field: wanted, read back, status, error) and `page_values` (what the form held right before Submit) |
+| `completed_by_user` | JSON list of the questions the user was asked to complete |
+| `started_at`, `submitted_at` | Epoch seconds |
+| `confirmation` | The confirmation URL or the text that proved submission |
+| `screenshot_filled`, `screenshot_after` | Full-page screenshots before Submit and after, in `~/.applypilot/applications/` |
+
+Indexes: `(company_key, submitted_at)` for the cap, `(job_id)`.
+
 ## 4.4 `probes`: slug-probe cache, one row per company
 
 | Column | Meaning |
@@ -240,6 +255,8 @@ interview → offer | rejected`.
 | `tailor.resume_dir` | `~/Documents/Resume` | Master resume, its `CLAUDE.md` fact base, `variants/`, `tailored/` |
 | `tailor.scorer` | `~/.claude/skills/resumetailor/scripts/ats_score.py` | Imported for fit scoring |
 | `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
+| `apply.max_per_company_30d` | 3 | Submitted + unconfirmed applications allowed per company per 30 days |
+| `apply.confirm_timeout_s` | 180 | After Submit: time to solve a CAPTCHA and reach the confirmation page |
 | `feeds.gmail_testing` | `true` | The Google Cloud app is in Testing (7-day sign-in): push a reminder on day 6. Set `false` after publishing to production. |
 
 ### `~/.applypilot/profile.yaml` and `answers.yaml`

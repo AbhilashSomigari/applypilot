@@ -10,9 +10,27 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 | 1 | Greenhouse/Lever/Ashby sources, tiered poller, seeding, alerts, launchd agent | ✅ Done (2026-10-20); agent installed and running |
 | 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
 | 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21); 3b built (2026-10-22): 6 resume variants, fit in the score, headless tailoring |
-| 4 | Playwright autofill, approve → submit, confirmation detection | 🔶 4a done (2026-10-22): plan + dry-run filler; 4b (submit) next |
+| 4 | Playwright autofill, approve → submit, confirmation detection | 🔶 4a + 4b built (2026-10-22): plan, dry run, apply at the Mac; 20 live applications next |
 | 5 | Phone dashboard, tracker, Workday adapter | Planned |
 | 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-22: Phase 4b, applying with the user at the Mac
+
+**Decisions (user, 2026-10-22):** approve at the Mac (option b); legal notices always ask; commit 4a
+(`5311af0`).
+
+**Built:**
+- `apply/submit.py` (`applypilot apply JOB_ID`): cap and duplicate gates → fill with the resume →
+  outline what needs the user → submit only on `submit` → confirmation by URL or text, validation
+  errors back to the user → `applications` row, screenshots, phone push.
+- `applications` table; `apply.*` settings; `queue` and `applications` commands; Rich emoji codes off
+  (`ashby:snowflake:…` rendered as ❄).
+- Tests: 164 (+1), plus 5 browser tests (+2: submit and confirm on local pages; validation error then
+  skip).
+
+**Not yet done:** no real application has been submitted. That's the user's first `apply` run.
 
 ---
 

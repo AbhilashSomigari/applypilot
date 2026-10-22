@@ -347,3 +347,24 @@ flowchart TD
    - **No submit code path in this module.** Dry runs don't attach the resume, because Lever and
      Ashby upload it as soon as it's chosen.
    - Pages that redirect to the company's own site are reported, not filled.
+
+## 2.13 Submitting with the user at the Mac (Phase 4b, approval option "b")
+`applypilot apply JOB_ID` (`apply/submit.py`):
+1. **Gates:** not already applied (`--again` overrides); at most `apply.max_per_company_30d`
+   (default 3) submitted or unconfirmed applications per company (normalized name) in 30 days.
+2. **Fill:** the form opens in a visible Chrome window (dedicated profile) and every planned answer is
+   filled and read back, **with the resume attached**.
+3. **What needs you:** legal notices (always the user's: the user chose "always ask", 2026-10-22),
+   essays, unknown questions and any field that failed to fill are **outlined in red** and listed in
+   the terminal with the reason. CAPTCHAs are left to the user.
+4. **Approval:** Submit is clicked only after the user types `submit`. `skip` abandons. Right before
+   Submit, the page's values and a screenshot are saved.
+5. **Confirmation:** the application counts as `submitted` only when the page reaches a confirmation
+   URL (`/confirmation`, `/thanks`, …) or "thank you for applying"-style text.
+   - Validation errors (`role=alert`, `aria-invalid`) send the user back to the form.
+   - No confirmation within `apply.confirm_timeout_s` (180 s, room for a CAPTCHA) → `unconfirmed`.
+6. **Record and push:** `applications` row (answers + readback, page values, the questions the user
+   completed, both screenshots, confirmation evidence); a phone push "Applied: …".
+
+`applypilot queue` lists the next best jobs (open, relevant, GH/Lever/Ashby, not applied, under the
+cap) with their resume variant; `applypilot applications` lists the log.

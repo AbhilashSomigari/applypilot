@@ -82,6 +82,28 @@ CREATE TABLE IF NOT EXISTS feed_items (
     seen_at REAL NOT NULL,
     PRIMARY KEY (feed, item_id)
 );
+
+CREATE TABLE IF NOT EXISTS applications (
+    id INTEGER PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    company TEXT NOT NULL,
+    company_key TEXT NOT NULL,                -- normalized company name, for the per-company cap
+    title TEXT NOT NULL,
+    ats TEXT NOT NULL,
+    url TEXT NOT NULL,
+    status TEXT NOT NULL,                     -- submitted | unconfirmed | abandoned | failed
+    resume TEXT,
+    answers TEXT,                             -- JSON: every field, what was filled, its source and readback
+    completed_by_user TEXT,                   -- JSON list of the questions the user answered in the window
+    started_at REAL NOT NULL,
+    submitted_at REAL,
+    confirmation TEXT,                        -- the confirmation page's URL / text that proved submission
+    screenshot_filled TEXT,
+    screenshot_after TEXT,
+    error TEXT
+);
+CREATE INDEX IF NOT EXISTS applications_company ON applications (company_key, submitted_at);
+CREATE INDEX IF NOT EXISTS applications_job ON applications (job_id);
 """
 
 # columns added after a table first shipped; connect() adds any that are missing
@@ -271,6 +293,29 @@ def save_probe(conn: sqlite3.Connection, key: str, found: list[tuple[str, str]],
 
 def mark_notified(conn: sqlite3.Connection, job_ids: Iterable[str], now: float) -> None:
     conn.executemany("UPDATE jobs SET notified_at=? WHERE id=?", [(now, i) for i in job_ids])
+
+
+def add_application(conn: sqlite3.Connection, **row) -> int:
+    cols = ", ".join(row)
+    cur = conn.execute(f"INSERT INTO applications ({cols}) VALUES ({', '.join('?' * len(row))})", list(row.values()))
+    return cur.lastrowid
+
+
+def update_application(conn: sqlite3.Connection, app_id: int, **row) -> None:
+    sets = ", ".join(f"{k}=?" for k in row)
+    conn.execute(f"UPDATE applications SET {sets} WHERE id=?", [*row.values(), app_id])
+
+
+def applied_to(conn: sqlite3.Connection, job_id: str) -> sqlite3.Row | None:
+    """The submitted (or unconfirmed) application for this job, if any."""
+    return conn.execute("SELECT * FROM applications WHERE job_id=? AND status IN ('submitted', 'unconfirmed')"
+                        " ORDER BY id DESC LIMIT 1", (job_id,)).fetchone()
+
+
+def company_applications(conn: sqlite3.Connection, company_key: str, since: float) -> int:
+    return conn.execute("SELECT COUNT(*) FROM applications WHERE company_key=? AND status IN ('submitted',"
+                        " 'unconfirmed') AND COALESCE(submitted_at, started_at) >= ?",
+                        (company_key, since)).fetchone()[0]
 
 
 def row_job(r: sqlite3.Row) -> Job:
