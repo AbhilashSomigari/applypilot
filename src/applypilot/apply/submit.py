@@ -195,3 +195,55 @@ async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=
             return finish("failed", error=f"{type(e).__name__}: {str(e)[:300]}")
         finally:
             await ctx.close()
+
+
+async def apply_unattended(conn, settings: Settings, row, form, plan: list[Answer], *, headless: bool = False) -> dict:
+    """Phone-approved apply: no one at the keyboard. Submits only when every planned field filled and read back
+    correctly and nothing needs the user; anything else aborts before Submit."""
+    out = home() / "applications"
+    out.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    resume = next((a.value for a in plan if a.source == "resume"), None)
+    app_id = db.add_application(conn, job_id=row["id"], company=row["company"],
+                                company_key=company_key(row["company"]), title=row["title"], ats=row["ats"],
+                                url=form.url, status="started", resume=resume, started_at=time.time(),
+                                approved_via="phone")
+
+    def finish(status: str, **kw) -> dict:
+        db.update_application(conn, app_id, status=status, **kw)
+        return dict(conn.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone())
+
+    if not resume or any(a.source in ("needs_you", "draft") and a.field.required for a in plan):
+        return finish("failed", error="not eligible for phone approval (resume missing or questions need you)")
+    from playwright.async_api import async_playwright
+
+    async with async_playwright() as p:
+        ctx = await launch(p, headless)
+        try:
+            page = await open_page(ctx, form.url)
+            results = await fill_page(page, row["ats"], plan, with_resume=True)
+            bad = [r for r in results if r.status in ("failed", "mismatch", "needs_you")
+                   and next(a for a in plan if a.field.key == r.key).field.required]
+            shot1 = out / f"{stamp}-{row['ats']}-filled.png"
+            await page.screenshot(path=str(shot1), full_page=True)
+            record = {"answers": json.dumps({"filled": [asdict(r) for r in results],
+                                             "page_values": await _page_values(page)}),
+                      "completed_by_user": "[]", "screenshot_filled": str(shot1)}
+            if bad:
+                return finish("failed", error="not submitted, fields didn't verify: "
+                              + "; ".join(f"{r.label[:40]} ({r.status})" for r in bad)[:280], **record)
+            if not await _click_submit(page):
+                return finish("failed", error="no Submit button found", **record)
+            status, evidence = await wait_confirmation(page, settings.apply.confirm_timeout_s)
+            shot2 = out / f"{stamp}-{row['ats']}-after.png"
+            await page.screenshot(path=str(shot2), full_page=True)
+            record["screenshot_after"] = str(shot2)
+            if status == "submitted":
+                return finish("submitted", submitted_at=time.time(), confirmation=evidence, **record)
+            if status == "errors":
+                return finish("failed", error=f"the form reported problems: {evidence}"[:300], **record)
+            return finish("unconfirmed", submitted_at=time.time(), confirmation=evidence, **record)
+        except Exception as e:
+            return finish("failed", error=f"{type(e).__name__}: {str(e)[:300]}")
+        finally:
+            await ctx.close()

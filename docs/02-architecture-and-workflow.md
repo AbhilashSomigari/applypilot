@@ -422,3 +422,25 @@ latency); checks passed.
 - **launchd note:** the agent's PATH is `/usr/bin:/bin:/usr/sbin:/sbin`, so `tailor.claude_bin` is
   resolved to a full path (`~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`). Verified on
   2026-10-22 that `claude -p` signs in under that bare environment.
+
+## 2.17 One-tap approval from the phone (2026-10-22; off by default)
+`apply/approval.py`, `submit.apply_unattended`.
+- **Gate:** `approval.enabled` (`applypilot approvals enable`) **and** at least `approval.min_supervised`
+  (5) applications confirmed through `apply` at the Mac. Phone-approved ones don't count.
+- **Eligible jobs:** prepared, with no required question for the user (legal notices are always the
+  user's), no drafts to review, and no CAPTCHA. Lever's hCaptcha rules out Lever.
+- **Offer:** after preparation, an ntfy JSON publish to the main topic with two actions: `http` **Apply**
+  (POST `"<job id> <token>"` to the private approval topic) and `view` Posting.
+  - The token is `exp.HMAC-SHA256(secret, job|exp)[:24]` (24 h).
+  - Once per job; at most `approval.max_offers_per_day` (10) per day.
+- **Listen:** the agent streams `<server>/<approval topic>/json?since=<last id or 12h>`, so messages sent
+  while the Mac slept are caught up. Each message is checked once (`approvals` table: duplicate, bad or
+  expired token, gate) and handled one at a time.
+- **Apply (unattended):**
+  1. Re-check: not already applied, under the company cap, form re-read and re-planned, still nothing
+     for the user, no CAPTCHA. Otherwise refuse and push "Needs you at the Mac".
+  2. Fill in a visible Chrome window with the resume attached.
+  3. **Submit only if every required field filled and read back correctly.** Otherwise abort and log
+     what didn't verify.
+  4. Confirmation as in `apply`; the result is pushed and logged with `approved_via='phone'`.
+- No inbound network to the Mac: the phone talks only to ntfy.

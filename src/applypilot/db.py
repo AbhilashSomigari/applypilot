@@ -104,6 +104,13 @@ CREATE TABLE IF NOT EXISTS applications (
 );
 CREATE INDEX IF NOT EXISTS applications_company ON applications (company_key, submitted_at);
 
+CREATE TABLE IF NOT EXISTS approvals (
+    message_id TEXT PRIMARY KEY,              -- the ntfy message id (each processed once)
+    job_id TEXT NOT NULL,
+    received_at REAL NOT NULL,
+    result TEXT                               -- submitted | unconfirmed | refused: <why> | failed: <why>
+);
+
 CREATE TABLE IF NOT EXISTS prepared (
     job_id TEXT PRIMARY KEY,
     prepared_at REAL NOT NULL,
@@ -113,13 +120,16 @@ CREATE TABLE IF NOT EXISTS prepared (
     drafts TEXT,                              -- JSON list of drafts (key, label, text, facts_used, issues)
     drafted INTEGER NOT NULL DEFAULT 0,       -- 1 = a Claude drafting call was made (counts toward the daily cap)
     captcha TEXT,
-    error TEXT
+    error TEXT,
+    offered_at REAL                           -- when a one-tap Apply push was sent for it
 );
 CREATE INDEX IF NOT EXISTS applications_job ON applications (job_id);
 """
 
 # columns added after a table first shipped; connect() adds any that are missing
 MIGRATIONS = {
+    "prepared": {"offered_at": "REAL"},
+    "applications": {"approved_via": "TEXT NOT NULL DEFAULT 'mac'"},
     "jobs": {
         "source": "TEXT NOT NULL DEFAULT 'ats'",
         # description screening (rank.screen): priority 0-100, visa signals, soft knockouts

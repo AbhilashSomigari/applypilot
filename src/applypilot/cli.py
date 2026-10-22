@@ -34,6 +34,8 @@ app.add_typer(seed_app, name="seed")
 app.add_typer(feeds_app, name="feeds")
 variants_app = typer.Typer(no_args_is_help=True, help="The 6 pre-built resume variants used for fit scoring.")
 app.add_typer(variants_app, name="variants")
+approvals_app = typer.Typer(no_args_is_help=True, help="One-tap approval from the phone (off by default).")
+app.add_typer(approvals_app, name="approvals")
 memory_app = typer.Typer(no_args_is_help=True, help="Answers you gave on forms, reused for the same question.")
 app.add_typer(memory_app, name="memory")
 gmail_app = typer.Typer(no_args_is_help=True, help="Read-only Gmail access for job-alert emails.")
@@ -233,6 +235,13 @@ def run(push: bool = True, feeds: bool = True) -> None:
                 from applypilot.apply import prepare
 
                 loops.append(prepare.run_forever(conn, s, client))
+            if s.approval.enabled and s.approval.topic and s.approval.secret:
+                from applypilot.apply import approval
+
+                async def apply_fn(job_id, _c=conn, _s=s, _cl=client):
+                    return await approval.apply_job(_c, _s, _cl, job_id)
+
+                loops.append(approval.listen(conn, s, client, apply_fn))
             await asyncio.gather(*loops)
 
     asyncio.run(go())
@@ -808,6 +817,72 @@ def prepare_cmd(limit: int = 3) -> None:
             continue
         k = len(json.loads(p["drafts"] or "[]"))
         console.print(f"{r['company']}: {r['title'][:60]} · {p['needs_count']} for you · {k} drafted")
+
+
+def _save_config(update) -> None:
+    import os
+
+    import yaml
+
+    path = write_default_config()
+    data = yaml.safe_load(path.read_text()) or {}
+    update(data)
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    os.chmod(path, 0o600)
+    get_settings.cache_clear()
+
+
+@approvals_app.command("enable")
+def approvals_enable(min_supervised: Annotated[int | None, typer.Option(
+        help="confirmed applications through `apply` at the Mac before phone approvals switch on")] = None) -> None:
+    """Turn on one-tap approval: creates a private approval topic and a signing key (config.yaml, mode 600)."""
+    import secrets
+
+    from applypilot import launchd
+
+    def upd(d):
+        a = d.setdefault("approval", {})
+        a["enabled"] = True
+        a.setdefault("topic", f"applypilot-ok-{secrets.token_urlsafe(12)}")
+        a.setdefault("secret", secrets.token_urlsafe(32))
+        if min_supervised is not None:
+            a["min_supervised"] = min_supervised
+
+    _save_config(upd)
+    s = get_settings()
+    if launchd.status() != "not installed":
+        launchd.install()
+    console.print(f"phone approval enabled. Apply buttons start after {s.approval.min_supervised} confirmed "
+                  "applications through `applypilot apply` at the Mac, and only for forms that need nothing from you.\n"
+                  "Nothing to install on the phone: the button posts to a private topic the Mac listens to.")
+
+
+@approvals_app.command("disable")
+def approvals_disable() -> None:
+    """Turn off one-tap approval (keeps the topic and key, so re-enabling doesn't change them)."""
+    from applypilot import launchd
+
+    _save_config(lambda d: d.setdefault("approval", {}).update(enabled=False))
+    if launchd.status() != "not installed":
+        launchd.install()
+    console.print("phone approval disabled")
+
+
+@approvals_app.command("status")
+def approvals_status() -> None:
+    """Whether phone approval is active, why not, and recent approvals."""
+    from applypilot.apply import approval
+
+    s = get_settings()
+    conn = _conn()
+    on, why = approval.active(conn, s)
+    console.print(f"phone approval: {'[green]active[/]' if on else '[yellow]inactive[/]'} ({why}); "
+                  f"supervised applications: {approval.supervised(conn)}/{s.approval.min_supervised}; "
+                  f"offers today: {approval.offers_today(conn)}/{s.approval.max_offers_per_day}")
+    t = Table("received", "job", "result")
+    for r in conn.execute("SELECT * FROM approvals ORDER BY received_at DESC LIMIT 15"):
+        t.add_row(time.strftime("%m-%d %H:%M", time.localtime(r["received_at"])), r["job_id"], r["result"] or "…")
+    console.print(t)
 
 
 @app.command("resolve")

@@ -157,6 +157,16 @@ Indexes: `(company_key, submitted_at)` for the cap, `(job_id)`.
 | `drafted` | 1 if a Claude drafting call was made (counts toward the daily cap) |
 | `captcha`, `error` | CAPTCHA on the page; why the form couldn't be read |
 
+## 4.3c `approvals`: phone approvals received
+| Column | Meaning |
+|---|---|
+| `message_id` | PK: the ntfy message id (each is processed once) |
+| `job_id`, `received_at` | What was approved, and when the Mac saw it |
+| `result` | `submitted` / `unconfirmed` / `refused: …` / `failed: …` |
+
+Also: `prepared.offered_at` (when the Apply push went out) and `applications.approved_via` (`mac` |
+`phone`), both added by migration.
+
 ## 4.4 `probes`: slug-probe cache, one row per company
 
 | Column | Meaning |
@@ -268,6 +278,8 @@ interview → offer | rejected`.
 | `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
 | `apply.max_per_company_30d` | 3 | Submitted + unconfirmed applications allowed per company per 30 days |
 | `apply.confirm_timeout_s` | 180 | After Submit: time to solve a CAPTCHA and reach the confirmation page |
+| `approval.enabled` / `topic` / `secret` | `false` / generated / generated | One-tap phone approval; `topic` and `secret` are **secrets** (mode-600 config), set by `approvals enable` |
+| `approval.min_supervised` / `max_offers_per_day` / `token_ttl_h` | 5 / 10 / 24 | Supervised applications before activation; push cap; button lifetime |
 | `prepare.enabled` / `min_score` / `max_age_days` / `per_cycle` / `interval_s` / `max_drafted_per_day` | `true` / 60 / 3 / 3 / 300 / 15 | Background preparation |
 | `apply.drafts` | `true` | Draft written answers from the resume fact base during `apply` (always reviewed by you) |
 | `feeds.gmail_testing` | `true` | The Google Cloud app is in Testing (7-day sign-in): push a reminder on day 6. Set `false` after publishing to production. |
@@ -299,6 +311,7 @@ Email feeds' `feeds.cursor` is `{"since": <epoch s>, "seen": [message ids]}`: th
 |---|---|
 | `~/.applypilot/chrome-profile/` | The dedicated Chrome profile Playwright uses (cookies and sign-ins for ATS sites), separate from the user's own |
 | `~/.applypilot/answer_memory.yaml` | List of `{question (normalized), example, answer, kind, company (null = any), learned}`; written after confirmed submissions, editable |
+| `~/.applypilot/approval_cursor.json` | The last phone-approval message processed; the approval stream resumes after it |
 | `~/.applypilot/last_queue.json` | Job ids of the last `queue`, so `apply 3` means row 3 |
 | `~/.applypilot/dryruns/<stamp>-<ats>.png` / `.json` | Full-page screenshot and per-field results of a dry run (`wanted`, `got`, `status`, `error`) |
 | `answers.yaml` `misc.{pronouns, currently_employed, government_official_or_relative, noncompete, most_recent_employer, most_recent_title}` | Added 2026-10-22, **empty** by default. Matching questions stay "needs you" until the user fills them in. |

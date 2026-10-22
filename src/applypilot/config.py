@@ -101,6 +101,17 @@ class Prepare(BaseModel):
     max_drafted_per_day: int = 15  # each drafted form is one headless Claude call (uses Claude usage)
 
 
+class Approval(BaseModel):
+    """One-tap approval from the phone (ntfy action button → a second private topic the Mac listens to)."""
+
+    enabled: bool = False  # `applypilot approvals enable`
+    topic: str = ""  # secret, like ntfy_topic: the phone posts approvals here
+    secret: str = ""  # signs each Apply button (HMAC), so knowing the topic isn't enough
+    min_supervised: int = 5  # confirmed applications through `apply` at the Mac before phone approvals switch on
+    max_offers_per_day: int = 10
+    token_ttl_h: int = 24
+
+
 class Settings(BaseModel):
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
@@ -110,6 +121,7 @@ class Settings(BaseModel):
     tailor: Tailor = Field(default_factory=Tailor)
     apply: Apply = Field(default_factory=Apply)
     prepare: Prepare = Field(default_factory=Prepare)
+    approval: Approval = Field(default_factory=Approval)
     max_concurrency: int = 24
     per_host_concurrency: int = 6
     timeout_s: float = 20.0

@@ -16,6 +16,18 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 
 ---
 
+## 2026-10-22: One-tap approval from the phone (automation item 4), built and off by default
+- `apply/approval.py`, `submit.apply_unattended`, the `approvals` table, `approvals enable/disable/status`.
+  See docs/02 §2.17.
+- Safety: off by default; active only after 5 supervised applications; only forms needing nothing
+  (no legal notice, draft or CAPTCHA); signed, expiring buttons; full re-check at approval; submit only
+  when every required field verifies.
+- Tests: 188 (+6), plus 7 browser tests (+1: unattended apply refuses to submit when a field doesn't
+  verify, submits when all do).
+- Item 3 committed and pushed as `aa91482`.
+
+---
+
 ## 2026-10-22: Background preparation (automation item 3)
 - `apply/prepare.py` plus the `prepared` table, run by the agent every 5 min; `prepare` command;
   `queue` readiness column; `apply` reuses stored drafts. See docs/02 §2.16.

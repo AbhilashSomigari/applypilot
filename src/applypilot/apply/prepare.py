@@ -85,8 +85,12 @@ def stored_drafts(conn, job_id: str, plan: list) -> list[Draft]:
 
 async def run_once(conn, settings: Settings, client: httpx.AsyncClient) -> int:
     rows = candidates(conn, settings, settings.prepare.per_cycle)
+    from applypilot.apply import approval
+
     for r in rows:
         res = await prepare(conn, settings, client, r)
+        if await approval.offer(conn, settings, client, r, db.get_prepared(conn, r["id"])):
+            log.info("offered one-tap apply for %s (%s)", r["id"], r["company"])
         log.info("prepared %s (%s): needs %s, drafts %s%s", r["id"], r["company"], res.get("needs_count"),
                  len(json.loads(res.get("drafts") or "[]")), f", error {res['error']}" if res.get("error") else "")
     return len(rows)
