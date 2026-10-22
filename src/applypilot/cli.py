@@ -624,7 +624,7 @@ def fill_cmd(job_id: str,
 def apply_cmd(job_id: str, again: bool = False) -> None:
     """Apply to one job with you at the Mac: Chrome fills the form and attaches the resume, outlines what needs
     you, and submits only when you type 'submit'. Logged in `applications`; per-company cap enforced."""
-    from applypilot.apply import answers, forms, submit
+    from applypilot.apply import answers, drafts, forms, submit
 
     s = get_settings()
     conn = _conn()
@@ -643,6 +643,13 @@ def apply_cmd(job_id: str, again: bool = False) -> None:
         async with make_client(s) as client:
             form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
         plan = answers.plan(form, answers.resume_for(s, row), row["company"])
+        if s.apply.drafts and any(drafts.draftable(a) for a in plan):
+            with console.status("drafting written answers from your verified facts…"):
+                found = await drafts.draft(s, plan, row["company"], row["title"], row["description"] or "")
+            plan = drafts.apply_drafts(plan, found)
+            for d in found:
+                console.print(f"[{'green' if d.ok else 'yellow'}]draft[/] {d.label[:70]}"
+                              + ("" if d.ok else f"  [yellow]CHECK: {'; '.join(d.issues)}[/]"))
         res = await submit.apply(conn, s, row, form, plan, say=console.print)
         if res["status"] == "submitted":
             async with httpx.AsyncClient() as client:
@@ -719,6 +726,42 @@ def memory_forget(number: int) -> None:
     gone = items.pop(number - 1)
     memory.save(items)
     console.print(f"forgot: {gone.example[:80]} -> {gone.answer}")
+
+
+@app.command("draft")
+def draft_cmd(job_id: str) -> None:
+    """Preview drafted written answers for a job (from your verified facts) and their grounding checks.
+    Opens no browser and sends nothing to the employer."""
+    from applypilot.apply import answers, drafts, forms
+
+    s = get_settings()
+    row = db.get_job(_conn(), job_id := _job_ref(job_id))
+    if row is None:
+        raise typer.BadParameter(f"no job {job_id}")
+
+    async def go():
+        async with make_client(s) as client:
+            form = await forms.fetch(client, row["ats"], row["slug"], row["ext_id"], row["apply_url"])
+        plan = answers.plan(form, None, row["company"])
+        todo = [a for a in plan if drafts.draftable(a)]
+        if not todo:
+            return [], []
+        with console.status(f"drafting {len(todo)} answer(s) from your verified facts…"):
+            return todo, await drafts.draft(s, plan, row["company"], row["title"], row["description"] or "")
+
+    todo, found = asyncio.run(go())
+    if not todo:
+        console.print("no written questions to draft on this form")
+        return
+    if not found:
+        console.print("[red]no drafts came back[/] (is the resume fact base at tailor.resume_dir/CLAUDE.md?)")
+        raise typer.Exit(1)
+    for d in found:
+        console.rule(d.label[:100])
+        console.print(d.text)
+        console.print("[green]grounding checks passed[/]" if d.ok else "[yellow]CHECK:[/] " + "; ".join(d.issues))
+        if d.facts_used:
+            console.print("[dim]facts used: " + " | ".join(f[:60] for f in d.facts_used) + "[/]")
 
 
 @app.command("resolve")

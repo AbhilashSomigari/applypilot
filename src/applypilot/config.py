@@ -86,6 +86,8 @@ class Apply(BaseModel):
     # recruiters notice a spray pattern; the plan caps applications per company per 30 days
     max_per_company_30d: int = 3
     confirm_timeout_s: int = 180  # after Submit: time to solve a CAPTCHA and reach the confirmation page
+    # draft written answers from the resume fact base (headless Claude Code, no tools); always reviewed by the user
+    drafts: bool = True
 
 
 class Settings(BaseModel):

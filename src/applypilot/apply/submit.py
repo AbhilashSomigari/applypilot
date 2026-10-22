@@ -140,7 +140,7 @@ async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=
             page = await open_page(ctx, form.url)
             results = await fill_page(page, row["ats"], plan, with_resume=True)
             by_key = {r.key: r for r in results}
-            todo = [a for a in plan if a.source == "needs_you"
+            todo = [a for a in plan if a.source in ("needs_you", "draft")
                     or by_key[a.field.key].status in ("failed", "mismatch")]
             await _highlight(page, row["ats"], todo)
             say(f"\n{row['company']}: {row['title']}\n{sum(r.status == 'filled' for r in results)} fields filled and"
@@ -148,7 +148,7 @@ async def apply(conn, settings: Settings, row, form, plan: list[Answer], *, ask=
             if form.captcha:
                 say(f"This page uses {form.captcha}: if a challenge appears after Submit, solve it in the window.")
             if todo:
-                say(f"Complete these {len(todo)} in the Chrome window (outlined in red):")
+                say(f"Complete or review these {len(todo)} in the Chrome window (outlined in red):")
                 for a in todo:
                     r = by_key[a.field.key]
                     why = r.error if r.status in ("failed", "mismatch") else a.note

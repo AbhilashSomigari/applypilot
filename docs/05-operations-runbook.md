@@ -151,6 +151,7 @@ uv run applypilot applications              # the log
 After a confirmed submission, `apply` offers to remember the answers you typed (never legal notices
 or essays):
 ```bash
+uv run applypilot draft 3            # preview drafted written answers and their grounding checks
 uv run applypilot memory list        # what's remembered, and for which company
 uv run applypilot memory forget 4    # delete entry 4 (or edit ~/.applypilot/answer_memory.yaml)
 ```

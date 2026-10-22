@@ -384,3 +384,23 @@ cap) with their resume variant; `applypilot applications` lists the log.
     then exact or ≥ 0.92 similar.
   - Dropdowns reuse an answer only if the form offers that exact option.
   - Reused answers are filled and read back like any other (source `memory`).
+
+## 2.15 Grounded drafts for written answers (2026-10-22)
+`apply/drafts.py`. For questions marked as essays, two-part questions, or short "Why …? / Describe …"
+text questions without a rule:
+1. **Facts:** only the verified sections of the resume fact base (`<tailor.resume_dir>/CLAUDE.md`:
+   verified career facts, project ranking, bullet bank, keyword mapping, policy). The contact line and
+   the LinkedIn audit are excluded. The job posting is context only.
+2. **Writer:** one headless Claude Code call per form with **no tools** (`--tools ""`), a strict system
+   prompt (only these facts; respect the question's length; first person; no em dashes), a JSON schema
+   (`key`, `draft`, `facts_used`) and a $1 budget cap. Wall-clock deadline 240 s.
+3. **Grounding check:** every `facts_used` phrase must appear in the facts (normalized), and every
+   number in the draft must appear in the facts or the posting. Failures are flagged (`CHECK: …`),
+   never hidden.
+4. **Use:** `apply` fills drafts (source `draft`) and lists them with everything else the user must
+   review, still outlined. `applypilot draft <#>` previews them with their checks. Legal notices are
+   never drafted; essays never enter answer memory.
+
+Live example (2026-10-22, Anthropic "Why Anthropic?"): 18.5 s. Six cited facts (Claude Code skills and
+hooks, the provider router, the EvalForge GPT-4o vs Claude benchmark, $0.03 per incident, p50/p95
+latency); checks passed.

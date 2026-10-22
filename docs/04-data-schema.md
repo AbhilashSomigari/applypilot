@@ -257,6 +257,7 @@ interview → offer | rejected`.
 | `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
 | `apply.max_per_company_30d` | 3 | Submitted + unconfirmed applications allowed per company per 30 days |
 | `apply.confirm_timeout_s` | 180 | After Submit: time to solve a CAPTCHA and reach the confirmation page |
+| `apply.drafts` | `true` | Draft written answers from the resume fact base during `apply` (always reviewed by you) |
 | `feeds.gmail_testing` | `true` | The Google Cloud app is in Testing (7-day sign-in): push a reminder on day 6. Set `false` after publishing to production. |
 
 ### `~/.applypilot/profile.yaml` and `answers.yaml`

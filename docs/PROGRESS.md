@@ -16,6 +16,18 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 
 ---
 
+## 2026-10-22: Grounded essay drafts (automation item 2)
+- `apply/drafts.py`: headless Claude Code (no tools, JSON schema, $1 cap), facts limited to the
+  verified sections of the resume fact base, grounding check on cited phrases and numbers. See
+  docs/02 §2.15.
+- `apply` drafts before filling and lists drafts for review; `applypilot draft <#>` previews them;
+  `apply.drafts` setting.
+- Live: Anthropic "Why Anthropic?" drafted in 18.5 s, 6 cited facts, checks passed.
+- Also: the pre-rewrite backup branch and `refs/original` deleted (user's request).
+- Tests: 177 (+7), plus 6 browser tests.
+
+---
+
 ## 2026-10-22: README rewritten; pushed to a private GitHub repo
 - README restructured: how it works (diagram), each stage, measured results, ground rules, setup,
   daily use, command reference, data locations, layout, development, roadmap.
