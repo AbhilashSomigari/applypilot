@@ -19,8 +19,13 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 ## 2026-10-22: README rewritten; pushed to a private GitHub repo
 - README restructured: how it works (diagram), each stage, measured results, ground rules, setup,
   daily use, command reference, data locations, layout, development, roadmap.
-- Whole history scanned for secrets and personal data before the first push. Pushed to a **private**
-  repo on the user's request.
+- Whole history scanned for secrets and personal data before the first push: no ntfy topic, API key,
+  OAuth client id or phone number in any commit, and no private files tracked.
+- GitHub rejected the first push ("push declined due to email privacy restrictions": the account
+  blocks pushes exposing the user's email). With the user's OK, the 6 unpushed commits were rewritten
+  to the GitHub noreply address (`git filter-branch --env-filter`, content verified identical, dates
+  kept). Commit hashes changed (d5721d4 → 19e2980, …) and references here were updated. The repo now
+  commits with the noreply address. Pushed to a **private** repo.
 
 ---
 
@@ -44,7 +49,7 @@ notices stay "always ask"; no unattended submit and no CAPTCHA solving.
 ## 2026-10-22: Phase 4b, applying with the user at the Mac
 
 **Decisions (user, 2026-10-22):** approve at the Mac (option b); legal notices always ask; commit 4a
-(`5311af0`).
+(`3a1d063`).
 
 **Built:**
 - `apply/submit.py` (`applypilot apply JOB_ID`): cap and duplicate gates → fill with the resume →
@@ -134,7 +139,7 @@ open jobs):
 
 ## 2026-10-21: First commit; Phase 3a description screening and ranking
 
-**Commit:** `d5721d4`, Phases 0–2 (56 files). Before it, `profile/profile.example.yaml` still held real
+**Commit:** `19e2980`, Phases 0–2 (56 files). Before it, `profile/profile.example.yaml` still held real
 contact details; it now has placeholders (the real copy lives in `~/.applypilot/profile.yaml`).
 
 **Built:**
