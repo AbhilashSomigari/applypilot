@@ -167,6 +167,13 @@ Submit happens only when you type `submit`; `skip` cancels. Solve any CAPTCHA in
 that shows errors after Submit waits for you to fix them. Screenshots go to
 `~/.applypilot/applications/`.
 
+## 5.3e Dashboard
+```bash
+open http://127.0.0.1:8787              # served by the launchd agent com.applypilot.web (log ~/.applypilot/web.log)
+uv run applypilot web --port 8799       # or run it in the foreground on another port
+```
+`agent install` installs and reloads both agents (poller and dashboard); `agent status` shows both.
+
 ## 5.4 Background agent (launchd)
 ```bash
 uv run applypilot agent install     # writes ~/Library/LaunchAgents/com.applypilot.poller.plist and loads it

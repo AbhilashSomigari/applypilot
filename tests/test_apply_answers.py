@@ -97,3 +97,44 @@ def test_name_questions_in_text_boxes():
     assert ask(label, "textarea", [])[0] == "Jane Doe"
     assert ask("Legal Last Name", "text", [])[0] == "Doe"
     assert ask("Full Name", "text", [])[0] == "Jane Ann Doe"
+
+
+EEO_SELF_ID = {"gender": "male", "race_ethnicity": "south asian", "veteran_status": "not a veteran",
+               "disability": "no disabilities"}
+
+
+@pytest.mark.parametrize("label, kind, options, want", [
+    # Ashby (Quora, real options)
+    ("How would you describe your gender identity?", "select", ["Male", "Female", "Non Binary", "I prefer not to say"],
+     "Male"),
+    ("What race and/or ethnic identities do you identify with?", "multiselect",
+     ["East Asian", "Hispanic or Latinx", "South Asian", "I prefer not to say"], ["South Asian"]),
+    ("US candidates only: Are you a veteran/have you served in the military?", "select",
+     ["Yes", "No", "Not applicable", "I prefer not to say"], "No"),
+    ("US candidates only: Do you live with a disability?", "select",
+     ["Yes", "No", "Not applicable", "I prefer not to say"], "No"),
+    # Greenhouse EEOC block (real options)
+    ("VeteranStatus", "select", ["I don't wish to answer", "I identify as one or more of the classifications of a "
+                                 "protected veteran", "I am not a protected veteran"], "I am not a protected veteran"),
+    ("Are you Hispanic/Latino?", "select", ["Yes", "No", "Decline To Self Identify"], "No"),
+    # Lever-style wording
+    ("Race", "select", ["Hispanic or Latino", "Asian (Not Hispanic or Latino)", "Decline to self-identify"],
+     "Asian (Not Hispanic or Latino)"),
+    ("Veteran", "select", ["I am a veteran", "I am not a veteran", "Decline to self-identify"], "I am not a veteran"),
+    ("Gender", "select", ["Female", "Male", "Decline to self-identify"], "Male"),
+])
+def test_eeo_follows_the_answers_file(label, kind, options, want):
+    ans = {**ANSWERS, "eeo": EEO_SELF_ID}
+    a = answer(Field("q", label, kind, False, options, section="eeo"), PROFILE, ans, None)
+    assert a.value == want and a.source == "answers"
+
+
+def test_eeo_without_a_matching_option_is_left_blank_not_declined():
+    ans = {**ANSWERS, "eeo": EEO_SELF_ID}
+    a = answer(Field("q", "Gender", "select", False, ["Woman", "Non-binary", "Prefer not to say"], section="eeo"),
+               PROFILE, ans, None)
+    assert (a.value, a.source) == (None, "skip")
+    declining = {**ANSWERS, "eeo": {"gender": "Decline to self-identify"}}
+    a = answer(Field("q", "Gender", "select", False, ["Male", "Decline to self-identify"], section="eeo"),
+               PROFILE, declining, None)
+    assert a.value == "Decline to self-identify"

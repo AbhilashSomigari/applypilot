@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Applications · ApplyPilot{% endblock %}
+{% block body %}
+<h1>Applications</h1>
+<form class="filters" method="get"><label>Status<select name="status" onchange="this.form.submit()">
+  {% for v, l in [('','all'),('submitted','submitted'),('unconfirmed','unconfirmed'),('failed','failed'),('abandoned','abandoned')] %}<option value="{{ v }}" {{ 'selected' if status == v }}>{{ l }}</option>{% endfor %}
+</select></label></form>
+{% if apps %}
+<table class="t"><thead><tr><th>When</th><th>Job</th><th>Status</th><th>Outcome</th><th>Via</th></tr></thead><tbody>
+{% for a in apps %}
+  <tr><td class="small" data-l="When">{{ (a.submitted_at or a.started_at)|when }}</td>
+    <td><a href="/applications/{{ a.id }}"><strong>{{ a.company }}</strong> · {{ a.title }}</a></td>
+    <td data-l="Status"><span class="badge {{ 'good' if a.status == 'submitted' else 'warn' if a.status == 'unconfirmed' else 'bad' if a.status == 'failed' else 'muted' }}">{{ a.status }}</span></td>
+    <td data-l="Outcome">{% if a.outcome %}<span class="badge {{ 'bad' if a.outcome == 'rejected' else 'good' }}">{{ a.outcome }}</span>{% else %}<span class="muted small">no reply yet</span>{% endif %}</td>
+    <td class="small" data-l="Via">{{ a.approved_via }}</td></tr>
+{% endfor %}</tbody></table>
+{% else %}<div class="card empty">No applications yet. Pick a job from <a href="/">Home</a>.</div>{% endif %}
+{% endblock %}

@@ -91,6 +91,47 @@ def _text_or_option(f: Field, text: str, src: str, *patterns: str) -> Answer:
     return Answer(f, text, src)
 
 
+# voluntary self-identification: answers.yaml `eeo` says what to pick ("decline…" phrases pick the decline option)
+_EEO_CATEGORY = (("hispanic", r"hispanic|latin"), ("race_ethnicity", r"race|ethnic"), ("gender", r"gender|\bsex\b"),
+                 ("veteran_status", r"veteran|military|served"), ("disability", r"disabilit"))
+# (category, the user's value) -> option patterns, most specific first
+_EEO_OPTIONS = (
+    ("gender", r"^(male|man)$", (r"^\s*(male|man)\b",)),
+    ("gender", r"^(female|woman)$", (r"^\s*(female|woman)\b",)),
+    ("race_ethnicity", r"south asian", (r"south asian", r"^\s*asian\b")),
+    ("race_ethnicity", r"east asian", (r"east asian", r"^\s*asian\b")),
+    ("race_ethnicity", r"white", (r"^\s*white\b",)),
+    ("race_ethnicity", r"black", (r"^\s*black\b",)),
+    ("veteran_status", r"not a (protected )?veteran|^no$", (r"not a protected veteran", r"i am not a veteran",
+                                                            r"^\s*no\b", r"not a veteran")),
+    ("disability", r"^no\b|no disabilit|do not have", (r"^\s*no,? i (do|don.t) not have", r"^\s*no,? i don.t have",
+                                                       r"^\s*no\b")),
+)
+
+
+def _eeo(f: Field, lab: str, eeo: dict) -> Answer:
+    cat = next((c for c, rx in _EEO_CATEGORY if re.search(rx, lab)), None)
+    if cat == "hispanic":
+        value = eeo.get("hispanic") or ("no" if re.search(r"asian|white|black|native|pacific",
+                                                         str(eeo.get("race_ethnicity", "")), re.I) else "")
+    else:
+        value = str(eeo.get(cat, "")) if cat else ""
+    blank = Answer(f, None, "needs_you" if f.required else "skip", "voluntary self-ID: no matching option")
+    if not value or any(re.search(d, value, re.I) for d in _DECLINE):
+        opt = pick(f.options, *_DECLINE)
+        if opt:
+            return Answer(f, [opt] if f.kind == "multiselect" else opt, "answers", "voluntary self-ID: decline")
+        return blank
+    if cat == "hispanic":
+        opt = pick(f.options, *(_YES if value.lower().startswith("y") else _NO))
+    else:
+        rule = next((pats for c, vrx, pats in _EEO_OPTIONS if c == cat and re.search(vrx, value, re.I)), None)
+        opt = pick(f.options, *(rule or (rf"^\s*{re.escape(value)}\s*$",)))
+    if opt is None:
+        return blank
+    return Answer(f, [opt] if f.kind == "multiselect" else opt, "answers", f"voluntary self-ID: {value}")
+
+
 def answer(f: Field, profile: dict, ans: dict, resume: Path | None) -> Answer:
     lab = f.label.lower()
     wa, av, misc = ans.get("work_authorization", {}), ans.get("availability", {}), ans.get("misc", {})
@@ -104,10 +145,7 @@ def answer(f: Field, profile: dict, ans: dict, resume: Path | None) -> Answer:
         return Answer(f, None, "needs_you" if f.required else "skip", "file upload (e.g. cover letter)")
     if f.section == "eeo" or re.search(r"\b(gender|race|ethnic|hispanic|latino|veteran|disabilit|sexual orientation"
                                        r"|transgender)\b", lab):
-        opt = pick(f.options, *_DECLINE)
-        if opt:
-            return Answer(f, [opt] if f.kind == "multiselect" else opt, "answers", "voluntary self-ID: decline")
-        return Answer(f, None, "needs_you" if f.required else "skip", "no decline option")
+        return _eeo(f, lab, ans.get("eeo", {}))
     if _LEGAL.search(lab):
         return Answer(f, None, "needs_you", "legal agreement / attestation: read and decide")
     if _SENSITIVE.search(lab):

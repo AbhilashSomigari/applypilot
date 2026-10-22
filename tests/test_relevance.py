@@ -29,6 +29,7 @@ def job(title, location="New York, NY", country=None):
         ("Specialist AI GTM Strategy and Activation", "Chicago, IL", False, False),
         ("Software Engineer", "London, United Kingdom", False, False),
         ("Software Engineer", "Bengaluru", False, False),
+        ("Associate Data Platform Engineer", "Cape Town", False, False),
         ("Software Engineer", "Toronto, Canada | New York, NY", True, False),
         ("Associate Software Engineer", "Jersey City, NJ", True, True),
     ],

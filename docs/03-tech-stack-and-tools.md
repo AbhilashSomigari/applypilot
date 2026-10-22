@@ -17,6 +17,8 @@ _Reflects: Phase 2, part 1 (2026-10-20). Planned items are marked._
 | **osascript** | macOS | Native banners without any dependency. |
 | **pdfminer.six + pypdf** | ≥ 20231228 / ≥ 4 | Text extraction for the resume-fit scorer (the same libraries `ats_score.py` uses). |
 | **Claude Code CLI, headless** (`claude -p`) | 2.1 | Runs the user's `/resumetailor` skill without a person present (variants and per-job tailoring). JSON output gives the result text and `total_cost_usd`. |
+| **FastAPI + Uvicorn + Jinja2** | 0.115+ / 0.30+ / 3.1 | The local dashboard (server-rendered pages) |
+| **htmx** (vendored) | 1.9.12 | Live filters and partial updates without a JS build step or CDN |
 | **Playwright** (Python) | 1.64 | Drives the installed Google Chrome (`channel="chrome"`, no browser download) with a dedicated persistent profile; fills and reads back application forms. |
 | **launchd + caffeinate** | macOS | Starts at login, restarts on crash (`KeepAlive`), and stops idle sleep from freezing the poller (see B-006). |
 

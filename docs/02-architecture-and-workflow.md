@@ -465,3 +465,26 @@ First real digest (2026-10-22): 131 new relevant jobs and 39 hard drops in the l
 jobs. The agent had drafted 6 written answers on its own in the background (X ×3, impact.com,
 Anthropic, Quora), all grounded with checks passed. One said plainly the user hasn't used Tableau or
 Power BI and pointed to Grafana and Prometheus instead.
+
+## 2.19 Dashboard (Phase 5, step W1: read-only, 2026-10-22)
+Plan: `~/.claude/plans/expressive-wandering-avalanche.md`. The user chose access on the Mac and the
+phone via Tailscale, and answering their own questions in the dashboard.
+- **Server:** `applypilot web` (FastAPI + Jinja2 + vendored htmx 1.9.12, no build step, no CDN).
+  - Bound to `127.0.0.1:8787` only; verified unreachable on the LAN address.
+  - Runs as a second launchd agent, `com.applypilot.web` (log `~/.applypilot/web.log`).
+    `agent install` installs and reloads both.
+- **Database:** one connection per request (`db.connect(migrate=False)`, closed after the request);
+  migrations run once at startup. `PRAGMA busy_timeout=5000` everywhere, because two processes write.
+- **Pages:**
+  - `/` Home: 24 h counts, latency, next to apply with readiness, recent replies.
+  - `/jobs`: filters for search, min score, posted within, site, visa, sort and applied; live updates
+    through an htmx partial; paginated.
+  - `/jobs/{id}`: screening verdict with the evidence sentence, flags, readiness, what will need the
+    user, drafted answers with grounding badges, the posting, fit per variant.
+  - `/applications` and `/applications/{id}`: status and outcome, replies, what was filled, screenshots.
+  - `/digest`: the digest built now.
+  - `/files/{applications|dryruns}/{name}.png`: screenshots only (strict name check).
+- **Look:** one hand-written CSS with light and dark tokens; phone-first, tables stack into cards
+  under 700 px.
+
+Next steps: W2 apply from the dashboard, W3 tracking and settings, W4 Tailscale and phone.

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Jobs · ApplyPilot{% endblock %}
+{% block body %}
+<h1>Jobs</h1>
+<form class="filters" hx-get="/jobs" hx-target="#rows" hx-trigger="input changed delay:300ms, change" hx-push-url="true">
+  <label>Search<input name="q" value="{{ f.q }}" placeholder="company, title, city"></label>
+  <label>Min score<input name="min_score" type="number" min="0" max="100" value="{{ f.min_score|int }}" style="width:5rem"></label>
+  <label>Posted within<select name="days">
+    {% for d, l in [(1,'1 day'),(3,'3 days'),(7,'7 days'),(14,'14 days'),(30,'30 days')] %}<option value="{{ d }}" {{ 'selected' if f.days == d }}>{{ l }}</option>{% endfor %}
+  </select></label>
+  <label>Where<select name="ats">
+    {% for v, l in [('fillable','Greenhouse · Lever · Ashby'),('','all sites'),('greenhouse','Greenhouse'),('lever','Lever'),('ashby','Ashby'),('workday','Workday'),('other','other')] %}<option value="{{ v }}" {{ 'selected' if f.ats == v }}>{{ l }}</option>{% endfor %}
+  </select></label>
+  <label>Visa<select name="visa">
+    {% for v, l in [('','any'),('sponsors','sponsors'),('opt','says no sponsorship'),('everify','E-Verify')] %}<option value="{{ v }}" {{ 'selected' if f.visa == v }}>{{ l }}</option>{% endfor %}
+  </select></label>
+  <label>Sort<select name="sort">
+    {% for v, l in [('score','score'),('posted','newest'),('fit','resume fit')] %}<option value="{{ v }}" {{ 'selected' if f.sort == v }}>{{ l }}</option>{% endfor %}
+  </select></label>
+  <label><span>Applied</span><select name="show_applied"><option value="false">hide</option><option value="true" {{ 'selected' if f.show_applied }}>show</option></select></label>
+</form>
+<div id="rows">{% include "_jobs_rows.html" %}</div>
+{% endblock %}

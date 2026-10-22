@@ -13,6 +13,10 @@ dependencies = [
   "pdfminer-six>=20231228",
   "pypdf>=4,<7",
   "playwright>=1.47,<2",
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
+  "jinja2>=3.1,<4",
+  "python-multipart>=0.0.9",
 ]
 
 [project.scripts]

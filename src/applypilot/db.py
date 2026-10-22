@@ -143,6 +143,7 @@ MIGRATIONS = {
                      "outcome": "TEXT", "outcome_at": "REAL"},
     "jobs": {
         "source": "TEXT NOT NULL DEFAULT 'ats'",
+        "dismissed": "INTEGER NOT NULL DEFAULT 0",  # hidden from the queue and job lists by the user
         # description screening (rank.screen): priority 0-100, visa signals, soft knockouts
         "score": "REAL",
         "sponsorship": "TEXT",  # offers | no | unknown
@@ -159,12 +160,17 @@ MIGRATIONS = {
 }
 
 
-def connect(path: Path) -> sqlite3.Connection:
+def connect(path: Path, migrate: bool = True) -> sqlite3.Connection:
+    """Open the database. migrate=False skips schema setup (cheap per-request connections in the web app)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(path, isolation_level=None)  # autocommit; explicit BEGIN where needed
+    # autocommit; check_same_thread off because the web app hands connections to worker threads
+    conn = sqlite3.connect(path, isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")  # the poller agent and the web agent both write
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    if not migrate:
+        return conn
     conn.executescript(SCHEMA)
     for table, cols in MIGRATIONS.items():
         have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}

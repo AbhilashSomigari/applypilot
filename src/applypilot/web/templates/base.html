@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ApplyPilot{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<nav class="top"><div class="in">
+  <a class="brand" href="/">ApplyPilot</a>
+  <a href="/" class="{{ 'on' if nav == 'home' }}">Home</a>
+  <a href="/jobs" class="{{ 'on' if nav in ('jobs', 'job') }}">Jobs</a>
+  <a href="/applications" class="{{ 'on' if nav in ('applications', 'application') }}">Applications</a>
+  <a href="/digest" class="{{ 'on' if nav == 'digest' }}">Digest</a>
+</div></nav>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}{% from "_macros.html" import visa, ready %}
+{% block body %}
+<h1>Today</h1>
+<p class="muted small">Detection latency (board polls, 7 d): {% if d.latency_p50 is not none %}median {{ d.latency_p50 }} min, n={{ d.latency_n }}{% else %}no samples yet{% endif %}</p>
+<div class="grid">
+  <div class="card stat"><div class="n">{{ d.new_jobs }}</div><div class="l">new relevant jobs, 24 h</div></div>
+  <div class="card stat"><div class="n">{{ d.dropped }}</div><div class="l">hard drops, 24 h</div></div>
+  <div class="card stat"><div class="n">{{ d.applied }}</div><div class="l">applied, 24 h ({{ d.applied_total }} total)</div></div>
+  <div class="card stat"><div class="n">{{ d.interviews }}</div><div class="l">interviews</div></div>
+</div>
+<div class="cols">
+  <section>
+    <h2>Next to apply</h2>
+    {% if d.queue %}
+    <table class="t"><thead><tr><th>Score</th><th>Job</th><th>Posted</th><th>Ready</th></tr></thead><tbody>
+    {% for j in d.queue %}
+      <tr><td class="score" data-l="Score">{{ '%.0f'|format(j.score) }}</td>
+        <td><a href="/jobs/{{ j.id }}"><strong>{{ j.company }}</strong> · {{ j.title }}</a><br>
+          <span class="small muted">{{ j.location }}</span> {{ visa(j) }}</td>
+        <td class="small" data-l="Posted">{{ j.posted_at|age }}</td>
+        <td data-l="Ready">{{ ready(j.ready) }}</td></tr>
+    {% endfor %}</tbody></table>
+    {% else %}<div class="card empty">Nothing in the queue yet.</div>{% endif %}
+  </section>
+  <section>
+    <h2>Recent replies</h2>
+    <div class="card">
+    {% for r in d.responses %}
+      <p class="small"><span class="badge {{ 'good' if r.kind in ('interview','assessment') else 'bad' if r.kind == 'rejected' else '' }}">{{ r.kind }}</span>
+        <strong>{{ r.company }}</strong> · {{ r.subject }}<br><span class="muted">{{ r.received_at|when }}</span></p>
+    {% else %}<p class="muted small">No replies tracked yet.</p>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

@@ -943,6 +943,18 @@ def responses_cmd() -> None:
     console.print(t)
 
 
+@app.command("web")
+def web_cmd(port: int = 8787, host: str = "127.0.0.1") -> None:
+    """Run the dashboard at http://127.0.0.1:8787 (the launchd agent runs this too). Local only; the phone
+    reaches it through `tailscale serve`."""
+    import uvicorn
+
+    from applypilot.web.app import create_app
+
+    _setup_logging()
+    uvicorn.run(create_app(), host=host, port=port, log_level="warning")
+
+
 @app.command("resolve")
 def resolve_cmd(
     url: str = typer.Argument("", help="A job link (ATS, career page, short link)"),
@@ -1105,12 +1117,14 @@ def agent(action: str = typer.Argument(..., help="install | uninstall | status")
     from applypilot import launchd
 
     if action == "install":
-        console.print(f"installed {launchd.install()}\n  logs: {home() / 'run.log'}")
+        launchd.install()
+        console.print(f"installed: poller ({launchd.status()}) and dashboard ({launchd.status(launchd.WEB_LABEL)})"
+                      f" at http://127.0.0.1:8787\n  logs: {home() / 'run.log'}, {home() / 'web.log'}")
     elif action == "uninstall":
         launchd.uninstall()
         console.print("uninstalled")
     else:
-        console.print(launchd.status())
+        console.print(f"poller: {launchd.status()}\ndashboard: {launchd.status(launchd.WEB_LABEL)}")
 
 
 @app.command("test-push")

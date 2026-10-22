@@ -30,6 +30,9 @@ narratives and interview versions live in the local engineering journal._
 | B-023 | 2026-10-22 | Answers: 9 kinds of wrong automatic answers found by reviewing 60 real forms | Resolved (+34 regression tests) |
 | B-024 | 2026-10-22 | Filler: readback passed a wrong answer ("Doe" for preferred first + last name) | Resolved; lesson: readback ≠ correctness |
 | B-025 | 2026-10-22 | Filler: Ashby UUID ids broke `#id` selectors; sidebar text matched instead of the field | Resolved |
+| B-026 | 2026-10-22 | Answers: EEO questions always picked "decline", ignoring `answers.yaml` `eeo` | Resolved |
+| B-027 | 2026-10-22 | Tests: one test read the user's real `answers.yaml` | Resolved (every test gets a temp home) |
+| B-028 | 2026-10-22 | Relevance: Cape Town and other non-US cities passed as US | Resolved (40 jobs demoted) |
 
 ---
 
@@ -326,3 +329,31 @@ narratives and interview versions live in the local engineering journal._
     answer.
 - **Result:** the same 12 forms gave 106 filled and verified, 0 mismatch, 0 failed. Databricks redirects
   to its own site and is reported instead.
+
+### B-026: EEO questions ignored the answers file
+- **Symptom:** The user changed `answers.yaml` `eeo` from "decline" to self-identification (gender,
+  race, veteran, disability), but every EEO question would still have picked a decline option. The
+  rule only ever looked for a decline option.
+- **Found because:** The edit left two unclosed quotes (`gender: "male`), which broke YAML parsing; a
+  test failed while reading the real file (B-027). The syntax was fixed with the user's values kept,
+  and a backup made at `answers.yaml.bak-2026-10-22`.
+- **Fix:** `answers._eeo`:
+  - A decline value picks the decline option.
+  - Otherwise category-specific option patterns, from real GH/Lever/Ashby wording: South Asian → "South
+    Asian" or "Asian (Not Hispanic or Latino)"; "not a veteran" → "I am not a protected veteran";
+    Hispanic/Latino → No when race is set.
+  - No confident match → required: needs you; optional: left blank. Never a silent decline.
+  - 11 regression tests; checked on the 60 real forms.
+
+### B-027: A test read the user's real files
+- **Symptom:** `test_a_form_that_changed_is_refused…` failed with a YAML error from
+  `~/.applypilot/answers.yaml`.
+- **Cause:** That test didn't isolate `APPLYPILOT_HOME`, so `answers.load_user` read the real profile.
+- **Fix:** An autouse fixture in `tests/conftest.py` gives every test a temporary home.
+
+### B-028: Non-US cities passed the location gate
+- **Symptom:** impact.com "Associate Data Platform Engineer, Cape Town" sat in the dashboard queue.
+- **Cause:** `NON_US` lacked many cities (Cape Town, Mexico City, Bogotá, Budapest, Kraków, Cambridge UK, …).
+- **Fix:** About 45 cities added. US hints still win ("Vienna, VA" stays US). Ambiguous bare names
+  (Manchester) left out; the ATS country field decides those. `screen` demoted 40 stored jobs, all
+  checked to be outside the US.

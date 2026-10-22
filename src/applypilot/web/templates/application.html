@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ app.company }} · ApplyPilot{% endblock %}
+{% block body %}
+<p class="small"><a href="/applications">← Applications</a></p>
+<h1>{{ app.company }} · {{ app.title }}</h1>
+<div class="card"><dl class="kv">
+  <dt>Status</dt><dd>{{ app.status }}{% if app.outcome %} · outcome <strong>{{ app.outcome }}</strong>{% endif %}</dd>
+  <dt>Started</dt><dd>{{ app.started_at|when }}</dd>
+  {% if app.submitted_at %}<dt>Submitted</dt><dd>{{ app.submitted_at|when }} ({{ app.approved_via }})</dd>{% endif %}
+  {% if app.confirmation %}<dt>Confirmation</dt><dd class="small">{{ app.confirmation }}</dd>{% endif %}
+  {% if app.error %}<dt>Error</dt><dd class="small" style="color:var(--bad)">{{ app.error }}</dd>{% endif %}
+  <dt>Resume</dt><dd class="small">{{ (app.resume or '')|replace(app.resume.rsplit('/', 2)[0] ~ '/' if app.resume else '', '') }}</dd>
+  <dt>Job</dt><dd><a href="/jobs/{{ app.job_id }}">{{ app.job_id }}</a> · <a href="{{ app.url }}" target="_blank" rel="noopener">form ↗</a></dd>
+</dl></div>
+<h2>Replies</h2>
+<div class="card">{% for r in responses %}<p class="small"><span class="badge">{{ r.kind }}</span> {{ r.received_at|when }} · {{ r.subject }} <span class="muted">({{ r.sender }})</span></p>{% else %}<p class="muted small">No replies tracked yet.</p>{% endfor %}</div>
+{% if completed %}<h2>You answered</h2><div class="card small">{% for c in completed %}<div>{{ c }}</div>{% endfor %}</div>{% endif %}
+<h2>What was filled</h2>
+<table class="t"><thead><tr><th>Question</th><th>Value</th><th>Check</th></tr></thead><tbody>
+{% for f in filled %}{% if f.status != 'skipped' %}
+  <tr><td>{{ f.label }}</td><td class="small" data-l="Value">{{ f.got or f.wanted }}</td>
+    <td data-l="Check"><span class="badge {{ 'good' if f.status == 'filled' else 'warn' if f.status == 'needs_you' else 'bad' }}">{{ f.status }}</span></td></tr>
+{% endif %}{% endfor %}</tbody></table>
+{% for shot in [app.screenshot_filled, app.screenshot_after] if shot %}
+  <h2>{{ 'Before submit' if loop.first and app.screenshot_filled else 'After submit' }}</h2>
+  <img class="shot" src="/files/applications/{{ shot.rsplit('/', 1)[1] }}" alt="screenshot" loading="lazy">
+{% endfor %}
+{% endblock %}

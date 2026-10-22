@@ -62,7 +62,10 @@ NON_US = re.compile(
     r"|israel|tel aviv|brazil|são paulo|sao paulo|mexico|argentina|colombia|chile|emea|apac|latam"
     r"|europe|switzerland|zurich|sweden|stockholm|denmark|copenhagen|philippines|vietnam|nigeria"
     r"|kenya|south africa|uae|dubai|romania|serbia|ukraine|czech|prague|estonia|finland|norway|italy|milan"
-    r"|remoto|brasil|rio de janeiro",
+    r"|remoto|brasil|rio de janeiro|cape town|johannesburg|nairobi|lagos|cairo|riyadh|doha|istanbul|athens"
+    r"|vienna|brussels|budapest|bucharest|krakow|wroclaw|kyiv|lviv|tallinn|riga|vilnius|manila|jakarta"
+    r"|bangkok|kuala lumpur|ho chi minh|hanoi|karachi|lahore|dhaka|colombo|auckland|new zealand|bogota"
+    r"|buenos aires|santiago|lima|montevideo|guadalajara|monterrey|mexico city|edinburgh|cambridge, uk",
     re.I,
 )
 

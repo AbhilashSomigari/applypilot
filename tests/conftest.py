@@ -14,6 +14,12 @@ def load(name: str):
     return json.loads((FIX / name).read_text())
 
 
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path_factory, monkeypatch):
+    """No test may read or write the real ~/.applypilot (profile, answers, memory, tokens)."""
+    monkeypatch.setenv("APPLYPILOT_HOME", str(tmp_path_factory.mktemp("home")))
+
+
 @pytest.fixture
 def conn(tmp_path):
     return db.connect(tmp_path / "t.db")

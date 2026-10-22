@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Digest · ApplyPilot{% endblock %}
+{% block body %}
+<h1>{{ d.title }}</h1>
+<p class="muted small">The same summary the agent pushes each morning, built now.</p>
+<div class="card digest">{{ d.markdown|md|safe }}</div>
+{% endblock %}

@@ -120,6 +120,7 @@ Index: `boards_due (next_poll) WHERE tier NOT IN ('dead','blocked')`.
 | `notified_at` | REAL, null | When the push was sent |
 | `closed_at` | REAL, null | When it disappeared from the board; cleared if it reappears. Feed-only jobs (non-pollable ATS) are never closed yet. |
 | `source` | TEXT | `ats` (found by a board poll) or the feed that found it **first**. Added by migration. |
+| `dismissed` | INTEGER 0/1 | Hidden from the queue and job lists by the user (dashboard, W2). Added by migration. |
 | `score` | REAL, null | Priority 0–100 from `rank.score` (null = not screened: no description yet) |
 | `sponsorship` | TEXT, null | `offers` / `no` / `unknown`, read from the description |
 | `everify` | INTEGER 0/1, null | Description mentions E-Verify |

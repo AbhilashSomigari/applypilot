@@ -1,0 +1,47 @@
+{% extends "base.html" %}{% from "_macros.html" import visa, ready as readybadge %}
+{% block title %}{{ j.company }} · ApplyPilot{% endblock %}
+{% block body %}
+<p class="small"><a href="/jobs">← Jobs</a></p>
+<h1>{{ j.title }}</h1>
+<p><strong>{{ j.company }}</strong> · {{ j.location }} · <span class="muted">{{ j.ats }} · posted {{ j.posted_at|age }} · via {{ j.source|replace('github:', '') }}</span></p>
+<div class="actions">
+  <a class="btn" href="{{ j.url or j.apply_url }}" target="_blank" rel="noopener">Open posting ↗</a>
+  {% for a in apps %}<a class="btn" href="/applications/{{ a.id }}">Application: {{ a.status }}{% if a.outcome %} · {{ a.outcome }}{% endif %}</a>{% endfor %}
+</div>
+<div class="cols">
+  <section>
+    <div class="card">
+      <dl class="kv">
+        <dt>Score</dt><dd><span class="score">{{ '%.0f'|format(j.score) if j.score is not none else '–' }}</span> {{ visa(j) }}</dd>
+        <dt>Screening</dt><dd>{% if j.relevant %}<span class="badge good">kept</span> {{ j.reason }}{% else %}<span class="badge bad">dropped</span> {{ j.reason }}{% endif %}</dd>
+        {% if evidence %}<dt>Because</dt><dd><div class="evidence small">{{ evidence }}</div></dd>{% endif %}
+        {% if flags %}<dt>Flags</dt><dd>{% for f in flags %}<span class="badge warn">{{ f }}</span> {% endfor %}</dd>{% endif %}
+        <dt>Application</dt><dd>{% if ready %}{{ readybadge(ready) }}{% elif j.ats in ('greenhouse','lever','ashby') %}<span class="badge muted">not prepared yet</span>{% else %}<span class="badge muted">apply on the company site</span>{% endif %}</dd>
+      </dl>
+    </div>
+    {% if needs %}
+    <h2>Will need you</h2>
+    <table class="t"><tbody>{% for n in needs %}<tr><td>{{ n.label }}</td><td class="small muted">{{ n.note }}{% if not n.required %} (optional){% endif %}</td></tr>{% endfor %}</tbody></table>
+    {% endif %}
+    {% if drafts %}
+    <h2>Drafted answers</h2>
+    {% for d in drafts %}
+      <div class="card" style="margin-bottom:10px">
+        <p class="small"><strong>{{ d.label }}</strong> {% if d.issues %}<span class="badge warn">check</span>{% else %}<span class="badge good">grounded</span>{% endif %}</p>
+        <p class="prose">{{ d.text }}</p>
+        {% if d.issues %}<p class="small" style="color:var(--warn)">{{ d.issues|join('; ') }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    {% endif %}
+    <h2>Posting</h2>
+    <div class="card prose">{{ j.description or 'No description stored for this job.' }}</div>
+  </section>
+  <section>
+    <h2>Resume fit</h2>
+    <div class="card">
+      {% if fits %}{% for v, s in fits.items() %}<p class="small">{% if loop.first %}<strong>{{ v }}</strong>{% else %}{{ v }}{% endif %} · {{ s }}</p>{% endfor %}
+      {% else %}<p class="muted small">No description or no resume variants yet.</p>{% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

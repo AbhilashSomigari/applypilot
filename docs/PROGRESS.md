@@ -11,8 +11,23 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 | 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
 | 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21); 3b built (2026-10-22): 6 resume variants, fit in the score, headless tailoring |
 | 4 | Playwright autofill, approve → submit, confirmation detection | 🔶 4a + 4b built (2026-10-22): plan, dry run, apply at the Mac; 20 live applications next |
-| 5 | Phone dashboard, tracker, Workday adapter | Planned |
+| 5 | Phone dashboard, tracker, Workday adapter | 🔶 Dashboard W1 (read-only) done 2026-10-22; W2–W4 next; then Workday |
 | 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-22: Dashboard W1 (read-only), plus three fixes
+- The user asked for a website to apply and track jobs before Workday. Plan approved: local FastAPI +
+  htmx app, Tailscale for the phone, the user's own answers given in the dashboard.
+- **W1 built:** `web/` (app, queries, templates, CSS, vendored htmx); pages Home, Jobs, Job,
+  Applications, Application, Digest, plus a screenshot route; `applypilot web`; a second launchd agent
+  `com.applypilot.web` on 127.0.0.1:8787. See docs/02 §2.19.
+- **Fixes:** EEO answers now follow `answers.yaml` (B-026; the user's file had two unclosed quotes,
+  fixed with a backup kept); tests isolated from the real home (B-027); about 45 non-US cities added
+  (B-028, 40 jobs demoted).
+- **Measured:** board-poll detection latency median 6.2 min over 56 detections (7 days). Pages in
+  0.01–0.4 s.
+- Tests: 216 (+7), plus 7 browser tests.
 
 ---
 

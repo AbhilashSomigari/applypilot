@@ -11,7 +11,7 @@ _Reflects: 2026-10-20. Items here are **proposals** until they appear in [PROGRE
 | 3 🔶 | **3a done (2026-10-21):** description hard drops (citizenship/green card, clearance, ITAR, scam, 4+ yrs), sponsor/E-Verify/H-1B signals, knockouts, score 0–100. **3b left:** fit to 6 pre-built resume variants; batch mode for `/resumetailor` | 1 wk | ✅ labeled set (73 excerpts): 35/35 hard drops, 0/38 false drops, 0/12 "no sponsorship" keeps dropped |
 | 4+ ✅ | Automation items, all built 2026-10-22: answer memory, grounded essay drafts, background preparation, phone one-tap approval (off until enabled + 5 supervised), daily digest with Gmail response tracking | | |
 | 4 🔶 | **4a done (2026-10-22):** form readers, answers from the user's files, dry-run filler with readback. **4b built (2026-10-22):** `apply` at the Mac (fill + attach, red outlines for what needs the user, submit on "submit", confirmation detection, per-company cap, log, push), `queue`, `applications`. **Left:** the 20 live applications themselves; grounded essay drafts; phone approval (option a) later | 1.5 wk | 20 live applications, 0 wrong fields |
-| 5 | FastAPI + HTMX dashboard over Tailscale, application tracker, Workday source and adapter | 1.5 wk | 100 applications in one day |
+| 5 🔶 | Dashboard (plan approved 2026-10-22): **W1 read-only pages done**; W2 apply from the dashboard, W3 tracking + settings, W4 Tailscale/phone next. Then Workday source and adapter | 1.5 wk | 100 applications in one day |
 | 6 | Gmail status sync, funnel metrics, generic JSON-LD career pages | later | Response rate by source / tier / variant |
 
 ## 7.2 Known limitations (current)

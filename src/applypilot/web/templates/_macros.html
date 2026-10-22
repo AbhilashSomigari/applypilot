@@ -1,0 +1,6 @@
+{% macro visa(j) -%}
+  {%- set v = VISA.get(j.sponsorship or 'unknown') -%}
+  {%- if v[0] %}<span class="badge {{ v[1] }}">{{ v[0] }}</span>{% endif -%}
+  {%- if j.everify %} <span class="badge good">E-Verify</span>{% endif -%}
+{%- endmacro %}
+{% macro ready(r) -%}<span class="badge {{ r.kind }}">{{ r.label }}</span>{%- endmacro %}

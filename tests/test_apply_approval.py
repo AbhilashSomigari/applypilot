@@ -101,7 +101,8 @@ async def test_messages_are_checked_once_and_refused_without_a_valid_token(conn,
     assert approval.parse('{"event":"keepalive","id":"k"}') is None
 
 
-async def test_a_form_that_changed_is_refused_and_the_user_is_told(conn, client, monkeypatch):
+async def test_a_form_that_changed_is_refused_and_the_user_is_told(conn, client, monkeypatch, tmp_path):
+    monkeypatch.setenv("APPLYPILOT_HOME", str(tmp_path))  # never read the real profile/answers
     sent = []
 
     async def fake_message(_c, _s, title, body, priority="default"):

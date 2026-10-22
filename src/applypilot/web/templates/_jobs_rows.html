@@ -1,0 +1,20 @@
+{% from "_macros.html" import visa, ready %}
+<p class="muted small">{{ total }} jobs</p>
+{% if rows %}
+<table class="t"><thead><tr><th>Score</th><th>Job</th><th>Posted</th><th>Resume</th><th>Ready</th></tr></thead><tbody>
+{% for j in rows %}
+  <tr><td class="score" data-l="Score">{{ '%.0f'|format(j.score or 0) }}</td>
+    <td><a href="/jobs/{{ j.id }}"><strong>{{ j.company }}</strong> · {{ j.title }}</a>{% if j.applied %} <span class="badge good">applied</span>{% endif %}<br>
+      <span class="small muted">{{ j.location }} · {{ j.ats }} · via {{ j.source|replace('github:', '') }}</span> {{ visa(j) }}</td>
+    <td class="small" data-l="Posted">{{ j.posted_at|age }}</td>
+    <td class="small" data-l="Resume">{{ j.variant or 'master' }}{% if j.fit %} · {{ j.fit|int }}{% endif %}</td>
+    <td data-l="Ready">{{ ready(j.ready) }}</td></tr>
+{% endfor %}</tbody></table>
+{% if pages > 1 %}
+<div class="pager">
+  {% if f.p > 1 %}<a class="btn" hx-get="{{ request.url.include_query_params(p=f.p - 1) }}" hx-target="#rows" hx-push-url="true">← Previous</a>{% endif %}
+  <span class="muted small">page {{ f.p }} of {{ pages }}</span>
+  {% if f.p < pages %}<a class="btn" hx-get="{{ request.url.include_query_params(p=f.p + 1) }}" hx-target="#rows" hx-push-url="true">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% else %}<div class="card empty">No jobs match these filters.</div>{% endif %}
