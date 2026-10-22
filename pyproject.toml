@@ -10,6 +10,8 @@ dependencies = [
   "PyYAML>=6,<7",
   "typer>=0.12,<1",
   "rich>=13,<15",
+  "pdfminer-six>=20231228",
+  "pypdf>=4,<7",
 ]
 
 [project.scripts]

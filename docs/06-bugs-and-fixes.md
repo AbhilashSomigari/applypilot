@@ -23,6 +23,10 @@ narratives and interview versions live in the local engineering journal._
 | B-016 | 2026-10-21 | Filters: "post-training feedback" read as a training-fee scam | Resolved |
 | B-017 | 2026-10-21 | Stats: detection latency mixed board polls, feeds and re-listings | Resolved |
 | B-018 | 2026-10-21 | Data: stored relevance verdicts predate newer title rules | Resolved (screen re-judges) |
+| B-019 | 2026-10-21 | Tailoring: headless session couldn't read the local repo copies | Resolved (`--add-dir`) |
+| B-020 | 2026-10-21 | Variants: one-posting archetype generalized poorly (swe-backend) | Resolved (multi-posting archetype: 122 → 546 jobs won) |
+| B-021 | 2026-10-21 | Fit: backfill too slow (JD terms re-derived per variant) | Resolved |
+| B-022 | 2026-10-22 | Tailoring: a run that slept mid-session hung 5.3 h past its 30-min timeout | Resolved (wall-clock deadline) |
 
 ---
 
@@ -232,3 +236,45 @@ narratives and interview versions live in the local engineering journal._
   never reached older rows.
 - **Fix:** `applypilot screen` re-runs the title/location gate on every relevant open job first: 72
   demoted on 2026-10-21.
+
+### B-019: Headless tailoring couldn't read the local repo copies
+- **Symptom:** The first variant's report (ml-engineer) said "the sandbox blocked reads of
+  `~/Documents/*`", so its repo sweep relied on the fact base only.
+- **Cause:** `claude -p` runs with `cwd` = the resume folder, and reads outside the working directory
+  need permission, which a headless session can't ask for.
+- **Fix:** `tailor.repo_dirs` (set in the local `config.yaml`, not in code) lists the repo copies.
+  Each existing one is passed as `--add-dir`. The next five variants read them (e.g. Portfolio's tests
+  and WCAG work, OpsPilot's VPC/Jaeger Terraform and its post-incident report).
+
+### B-020: A variant tailored to one posting generalized poorly
+- **Symptom:** After the fit backfill, `ai-engineer` was the best variant for 1,079 of 1,745 jobs and
+  `swe-backend` for only 111. On 40 plain "Software Engineer" postings, ai-engineer beat swe-backend
+  36 times, by 7.6 points on average.
+- **Cause:** A keyword diff over 60 SWE jobs showed it was content, not scorer noise. swe-backend was
+  tuned to Notion's posting (95 on it) and lacked the generic terms other SWE postings use:
+  production, software design, system design, observability, communication. ai-engineer had them.
+- **Fix:** swe-backend was rebuilt against the role and requirement sections of four real new-grad
+  SWE postings (Notion, Harvey, Cursor, Affirm). The full text, 19.7K chars, timed out at 30 min; the
+  trimmed 10K chars took 5.8 min. It scores 94, and is now the best variant for 546 jobs (was 122).
+  The Notion-only version is kept in `variants/_archive/`. `variants build --timeout` was added.
+
+### B-021: Fit backfill took 7 min
+- **Symptom:** `screen --all` with fit: 1,745 jobs in 7 min 13 s (~250 ms per job).
+- **Cause:** `ats_score.score()` re-derives the JD's terms (about 200 regexes per line) for each of the
+  six variants.
+- **Fix:** `Fitter` caches `jd_terms` per JD, returning copies because `score()` mutates them.
+  75 ms per job, with results identical to before on 100 of 100 jobs.
+
+### B-022: A tailoring run hung 5.3 hours past its 30-minute timeout
+- **Symptom:** The swe-backend rebuild started overnight and returned after 19,264 s with "API Error:
+  Your computer went to sleep mid-response". It left a `.tex` newer than its PDF, scoring 76.
+- **Cause:**
+  - The Mac was on battery, and `caffeinate -i` only prevents *idle* sleep (B-006).
+  - `asyncio.wait_for` measures the timeout on the monotonic clock, which doesn't advance while
+    macOS sleeps, so the 1,800 s limit never expired in wall-clock terms.
+- **Fix:**
+  - `tailor.run` checks a **wall-clock** deadline (`time.time()`) every ≤ 30 s and kills the session
+    when it passes; a test uses a 1 s limit.
+  - The partial output was moved to `variants/_archive/` and the last good variant restored.
+  - The earlier failure that night was the Claude usage limit ("You've hit your session limit"),
+    returned cleanly as an error after 81 s.

@@ -94,6 +94,12 @@ MIGRATIONS = {
         "everify": "INTEGER",
         "flags": "TEXT",  # JSON list
         "screened_at": "REAL",
+        # resume fit (fit.py): best pre-built variant and its ATS score against this JD
+        "fit": "REAL",
+        "variant": "TEXT",
+        # a resume tailored to this job (tailor.py)
+        "tailored_pdf": "TEXT",
+        "tailored_score": "REAL",
     },
 }
 
@@ -227,6 +233,14 @@ def set_screen(conn: sqlite3.Connection, job_id: str, score: float, sponsorship:
                now: float) -> None:
     conn.execute("UPDATE jobs SET score=?, sponsorship=?, everify=?, flags=?, screened_at=? WHERE id=?",
                  (score, sponsorship, int(everify), flags, now, job_id))
+
+
+def set_fit(conn: sqlite3.Connection, job_id: str, fit: float | None, variant: str | None) -> None:
+    conn.execute("UPDATE jobs SET fit=?, variant=? WHERE id=?", (fit, variant, job_id))
+
+
+def set_tailored(conn: sqlite3.Connection, job_id: str, pdf: str, score: float | None) -> None:
+    conn.execute("UPDATE jobs SET tailored_pdf=?, tailored_score=? WHERE id=?", (pdf, score, job_id))
 
 
 def set_relevance(conn: sqlite3.Connection, job_id: str, relevant: bool, reason: str) -> None:

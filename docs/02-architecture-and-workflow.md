@@ -24,7 +24,7 @@ flowchart LR
     RG -->|relevant| F[Description screen<br/>hard drops: citizenship / clearance /<br/>ITAR / scam / 4+ yrs<br/>signals + score 0-100]
     F -->|kept| N[ntfy push + macOS banner<br/>with score and visa line]
     F -->|hard drop| J
-    F -.-> T[Resume variant pick / full tailor<br/>Phase 3b]
+    F --> T[Resume fit: best of 6 variants<br/>full tailor on demand]
     T -.-> Q[Review queue + one-tap approve<br/>Phase 4-5]
     Q -.-> A[Playwright autofill → submit<br/>Phase 4]
 ```
@@ -198,7 +198,32 @@ PhD required, C2C/1099, clearance / citizenship preferred, export-control mentio
 - apply path: polled ATS 10, other ATS / employer page 5, aggregator 0;
 - penalties: 3 yrs −10, 2 yrs −4, PhD −15, C2C −10, future-sponsorship question −3, clearance/citizenship
   preferred −5.
-Fit to the resume variants is Phase 3b.
+- resume fit 0–20: the best variant's ATS score, 60 → 0 up to 95 → 20 (§2.11).
+
+## 2.11 Resume variants, fit and tailoring (Phase 3b)
+- **Six variants** cover the relevant-job mix (2026-10-21, 6,011 relevant open jobs):
+
+  | Variant | Covers | Archetype JD (real posting) |
+  |---|---|---|
+  | `swe-backend` | generalist / backend SWE (2,169) | Role + requirement sections of Notion, Harvey, Cursor and Affirm new-grad SWE postings |
+  | `ai-engineer` | AI / LLM / agents (1,332) | Cognition, Applied AI Engineer |
+  | `infra-platform` | infra / platform / SRE / DevOps (715) | Solace Health, Associate Platform Engineer (College Grad 2027) |
+  | `ml-engineer` | ML engineering (484) | Quora, Machine Learning Engineer, New Grad |
+  | `fullstack-fde` | full-stack / product / forward-deployed (717) | SpruceID, Full-Stack Software Engineer (New Grad) |
+  | `data` | data science / analytics / data engineering (453) | Solace Health, Data Scientist |
+- **Built by the user's `/resumetailor` skill, headless** (`tailor.py`): `claude -p "/resumetailor --batch
+  --out <dir>" + batch rules`, with `cwd` = the resume folder (so its fact base loads).
+  - The batch rules travel **in the prompt**, so the skill file is unchanged: no questions,
+    unconfirmed tools listed, not added; no writes outside `<dir>`; at most 6 rounds; a final
+    `BATCH_RESULT {...}` line.
+  - Tools are pre-allowed narrowly: Read/Write/Edit/Glob/Grep, tectonic, python3, cp, mkdir, ls,
+    `gh repo`/`gh api`. The project's venv is removed from `PATH`, so the skill's `python3` is the user's
+    own (PyMuPDF, pdfminer).
+- **Fit** (`fit.py`): `ats_score.py` imported once; each variant PDF's text is cached (re-read when
+  the file changes); every screened job is scored against all six. The best one is stored
+  (`jobs.fit`, `jobs.variant`) and shown on the push (`fit 88 (ml-engineer)`).
+- **Per-job tailoring** on demand: `applypilot tailor JOB_ID` → `Resume/tailored/<company>-<title>/`,
+  stored as `jobs.tailored_pdf`/`tailored_score`. Phase 4 attaches it, or the best variant.
 
 **Push line:** `new-grad tech role, US · score 64 · no sponsorship: OPT/STEM OPT path · E-Verify · via Simplify`.
 

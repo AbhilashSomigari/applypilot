@@ -15,17 +15,19 @@ _Reflects: Phase 2, part 1 (2026-10-20). Planned items are marked._
 | **Typer + Rich** | — | CLI with sub-commands, tables and progress bars. |
 | **ntfy.sh** | public server | Free phone push over plain HTTP POST; no account or SDK. The click-through opens the apply URL. |
 | **osascript** | macOS | Native banners without any dependency. |
+| **pdfminer.six + pypdf** | ≥ 20231228 / ≥ 4 | Text extraction for the resume-fit scorer (the same libraries `ats_score.py` uses). |
+| **Claude Code CLI, headless** (`claude -p`) | 2.1 | Runs the user's `/resumetailor` skill without a person present (variants and per-job tailoring). JSON output gives the result text and `total_cost_usd`. |
 | **launchd + caffeinate** | macOS | Starts at login, restarts on crash (`KeepAlive`), and stops idle sleep from freezing the poller (see B-006). |
 
 ## 3.2 Dev tools
 
 | Tool | Use |
 |---|---|
-| **pytest + pytest-asyncio** (auto mode) | 75 tests covering sources, poller, relevance, seeding, resolver, feeds, JSearch |
+| **pytest + pytest-asyncio** (auto mode) | 123 tests: sources, poller, relevance, filters (labeled eval), seeding, resolver, feeds, JSearch, Gmail, alert emails, tailoring and fit |
 | **respx** | Mocks the ATS HTTP APIs, with fixtures trimmed from real responses |
 | **ruff** | Lint (E, F, I, B, UP rules), line length 120 |
 | **Makefile** | `test`, `lint`, `poll`, `run`, `stats`, `jobs`, `seed`; exports `PYTHONPATH=src` (B-005) |
-| **Claude Code** | Pair-building; `/resumetailor` skill reused in Phase 3 |
+| **Claude Code** | Pair-building; the `/resumetailor` skill builds the resume variants headlessly (Phase 3b) |
 
 ## 3.3 External data sources
 
@@ -58,7 +60,6 @@ _Reflects: Phase 2, part 1 (2026-10-20). Planned items are marked._
 ## 3.4 Planned stack for later phases
 | Need | Choice | Phase |
 |---|---|---|
-| Resume tailoring | Headless Claude Code `claude -p "/resumetailor …"`, plus 6 pre-built variants scored with `~/.claude/skills/resumetailor/scripts/ats_score.py --json` | 3 |
 | LLM calls (screening answers, field mapping) | Provider router copied from ProspectPilot `llm/` (Anthropic, Ollama, mock) | 3–4 |
 | Browser automation | Playwright with a persistent dedicated Chrome profile, headed, N contexts | 4 |
 | Review dashboard | FastAPI + HTMX on localhost, reached from the phone over Tailscale | 5 |

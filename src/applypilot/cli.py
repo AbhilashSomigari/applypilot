@@ -10,6 +10,7 @@ import statistics
 import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Annotated
 
 import httpx
 import typer
@@ -30,6 +31,8 @@ app.add_typer(boards_app, name="boards")
 feeds_app = typer.Typer(no_args_is_help=True, help="Cross-employer feeds: GitHub new-grad lists, HN.")
 app.add_typer(seed_app, name="seed")
 app.add_typer(feeds_app, name="feeds")
+variants_app = typer.Typer(no_args_is_help=True, help="The 6 pre-built resume variants used for fit scoring.")
+app.add_typer(variants_app, name="variants")
 gmail_app = typer.Typer(no_args_is_help=True, help="Read-only Gmail access for job-alert emails.")
 app.add_typer(gmail_app, name="gmail")
 console = Console()
@@ -449,6 +452,88 @@ def gmail_samples(per_site: int = 2, days: int = 30) -> None:
     console.print(f"saved {len(saved)} emails to {out}" + "".join(f"\n  {n}" for n in saved))
 
 
+def _print_tailor(name: str, r) -> None:
+    if r.error:
+        console.print(f"[red]{name}: failed[/] {r.error}  ({r.seconds:.0f} s)")
+        return
+    cost = f", ${r.cost_usd:.2f}" if r.cost_usd is not None else ""
+    console.print(f"{name}: score {r.score}  {r.pdf}  ({r.seconds / 60:.1f} min{cost})")
+    for k in r.knockouts:
+        console.print(f"   knockout: {k}")
+    if r.unconfirmed:
+        console.print(f"   unconfirmed tools (not added; confirm to use them): {', '.join(r.unconfirmed)}")
+
+
+@variants_app.command("build")
+def variants_build(only: Annotated[list[str] | None, typer.Option(help="build just these variants")] = None,
+                   parallel: Annotated[int | None, typer.Option(help="concurrent claude sessions")] = None,
+                   timeout: Annotated[int | None, typer.Option(help="seconds per variant (default tailor.timeout_s)")]
+                   = None) -> None:
+    """Tailor the master resume to each variant's archetype JD (Resume/variants/<name>/jd.txt) with
+    `claude -p /resumetailor` in batch mode. Uses Claude usage: ~10-25 min per variant."""
+    from applypilot import tailor
+
+    s = get_settings()
+    if timeout:
+        s = s.model_copy(update={"tailor": s.tailor.model_copy(update={"timeout_s": timeout})})
+    names = only or list(tailor.VARIANTS)
+    missing = [n for n in names if not (tailor.variant_dir(s, n) / "jd.txt").exists()]
+    if missing:
+        raise typer.BadParameter(f"no jd.txt for: {', '.join(missing)}")
+    sem = asyncio.Semaphore(parallel or s.tailor.parallel)
+
+    async def one(n):
+        async with sem:
+            console.print(f"{n}: tailoring…")
+            r = await tailor.run(s, tailor.variant_dir(s, n))
+            _print_tailor(n, r)
+            return r
+
+    async def go():
+        return await asyncio.gather(*(one(n) for n in names))
+
+    results = asyncio.run(go())
+    if any(r.error for r in results):
+        raise typer.Exit(1)
+
+
+@variants_app.command("list")
+def variants_list() -> None:
+    """Each variant's archetype JD, ATS score against it, and PDF."""
+    from applypilot import tailor
+
+    s = get_settings()
+    t = Table("variant", "archetype JD", "score", "pdf")
+    for n in tailor.VARIANTS:
+        d = tailor.variant_dir(s, n)
+        jd = (d / "jd.txt").read_text().splitlines()[:2] if (d / "jd.txt").exists() else []
+        score = (d / "final_score.txt").read_text().strip() if (d / "final_score.txt").exists() else ""
+        pdf = tailor.variant_pdf(s, n)
+        t.add_row(n, " · ".join(reversed(jd)), score, str(pdf) if pdf.exists() else "[dim]not built[/]")
+    console.print(t)
+
+
+@app.command("tailor")
+def tailor_cmd(job_id: str) -> None:
+    """Tailor the resume to one stored job (claude -p /resumetailor, batch mode; ~10-25 min of Claude usage)."""
+    from applypilot import tailor
+
+    s = get_settings()
+    conn = _conn()
+    row = db.get_job(conn, job_id)
+    if row is None:
+        raise typer.BadParameter(f"no job {job_id}")
+    if not row["description"]:
+        raise typer.BadParameter("this job has no description to tailor to (run `screen --fetch-days`)")
+    out = tailor.resume_dir(s) / "tailored" / tailor.slug(row["company"], row["title"])
+    tailor.write_jd(out, row["title"], row["company"], row["url"], row["description"])
+    r = asyncio.run(tailor.run(s, out))
+    _print_tailor(row["company"], r)
+    if r.error:
+        raise typer.Exit(1)
+    db.set_tailored(conn, job_id, str(r.pdf), r.score)
+
+
 @app.command("resolve")
 def resolve_cmd(
     url: str = typer.Argument("", help="A job link (ATS, career page, short link)"),
@@ -555,7 +640,7 @@ def screen_cmd(all_jobs: bool = typer.Option(False, "--all", help="re-screen job
     drops: collections.Counter = collections.Counter()
     now = time.time()
     for r in rows:
-        keep, _ = rank.screen(conn, db.row_job(r), now)
+        keep, _ = rank.screen(conn, db.row_job(r), now, get_settings())
         if not keep:
             drops[db.get_job(conn, r["id"])["reason"].removeprefix("hard drop: ")] += 1
     console.print(f"screened {len(rows)} jobs: kept {len(rows) - sum(drops.values())}, hard drops "

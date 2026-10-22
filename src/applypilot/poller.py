@@ -132,7 +132,7 @@ class Poller:
         stats.new_jobs = len(new)
         fresh_cutoff = now - self.settings.fresh_hours * 3600
         for j in relevant:
-            keep, signals = rank.screen(self.conn, j, now)
+            keep, signals = rank.screen(self.conn, j, now, self.settings)
             if not keep:
                 continue  # citizenship, clearance, ITAR, scam or 4+ years in the description
             reason = verdicts[j.ext_id].reason + (f" · {signals}" if signals else "")

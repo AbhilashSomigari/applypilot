@@ -201,7 +201,7 @@ class FeedRunner:
                 db.set_description(self.conn, job.id, job.description)
             except (httpx.HTTPError, ValueError):
                 pass
-        keep, signals = rank.screen(self.conn, job, now)
+        keep, signals = rank.screen(self.conn, job, now, self.settings)
         if not keep:
             return job.id  # hard drop from the description (citizenship, clearance, ITAR, scam, 4+ years)
         reason = f"{v.reason}{f' · {signals}' if signals else ''} · via {feed.label}"
@@ -230,7 +230,7 @@ class FeedRunner:
                 db.set_description(self.conn, job.id, job.description)
             except (httpx.HTTPError, ValueError):
                 pass
-        keep, signals = rank.screen(self.conn, job)
+        keep, signals = rank.screen(self.conn, job, settings=self.settings)
         if not keep:
             return row["id"]
         reason = f"{row['reason']}{f' · {signals}' if signals else ''} · via {feed.label}"

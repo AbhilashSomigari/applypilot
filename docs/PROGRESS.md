@@ -9,10 +9,61 @@ Newest first. Each entry: date, phase, what changed, verified numbers.
 | 0 | Scaffold, config, SQLite, CLI, profile/answers templates | ✅ Done (2026-10-20) |
 | 1 | Greenhouse/Lever/Ashby sources, tiered poller, seeding, alerts, launchd agent | ✅ Done (2026-10-20); agent installed and running |
 | 2 | Gmail job alerts (LinkedIn, Indeed, Handshake), URL→ATS resolver, GitHub new-grad lists, HN, Google Jobs | 🔶 In progress: resolver, GitHub lists, HN, company+title resolution, Google Jobs (JSearch, live) done; Gmail sign-in + Indeed alerts live; LinkedIn and other alert sites left |
-| 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21): filters, signals, score; 3b (resume-variant fit, batch tailoring) next |
+| 3 | Description filters (citizenship/clearance/ITAR), sponsorship and E-Verify signals, fit ranking, resume variants | 🔶 3a done (2026-10-21); 3b built (2026-10-22): 6 resume variants, fit in the score, headless tailoring |
 | 4 | Playwright autofill, approve → submit, confirmation detection | Planned |
 | 5 | Phone dashboard, tracker, Workday adapter | Planned |
 | 6 | Gmail status sync, funnel metrics | Planned |
+
+---
+
+## 2026-10-21/22: Phase 3b, resume variants, fit and headless tailoring
+
+**Built:**
+- `tailor.py`: runs the user's `/resumetailor` skill with `claude -p … --output-format json` from the
+  resume folder.
+  - The batch rules (no questions; unconfirmed tools listed, not added; no writes outside the output
+    folder; ≤ 6 rounds; a final `BATCH_RESULT {...}` line) are **in the prompt**. Editing the skill file
+    was blocked by Claude Code's permission check, so it is unchanged.
+  - Tools are pre-allowed narrowly; local repo copies are granted with `--add-dir` (B-019); the project
+    venv is removed from `PATH`.
+  - Timeout on a wall-clock deadline (B-022).
+- `fit.py`: imports the skill's `ats_score.py` and scores every screened job against all six variants
+  (PDF text and JD terms cached, 75 ms per job, B-021). It stores `jobs.fit`/`variant`; the score adds
+  0–20 points; the push shows `fit 88 (ml-engineer)`.
+- CLI: `variants build [--only …]`, `variants list`, `tailor JOB_ID`.
+- Config `tailor.*` (resume dir, scorer, claude binary, timeout, parallel, repo_dirs).
+- Deps `pdfminer.six`, `pypdf`. 124 tests passing, ruff clean.
+
+**Variants** (archetypes are real postings from the job DB, by family size among 6,011 relevant
+open jobs):
+
+| Variant | Archetype | ATS score | Run |
+|---|---|---|---|
+| swe-backend | Role + requirement sections of 4 SWE new-grad postings (Notion, Harvey, Cursor, Affirm), 10K chars | 94 (the Notion-only first build scored 95 on Notion, archived) | 5.8 min, $2.22 |
+| infra-platform | Solace Health, Associate Platform Engineer | 94 (93 before generic-izing) | 6.3 min, $2.24 |
+| ai-engineer | Cognition, Applied AI Engineer | 92 | 5.4 min, $2.01 |
+| fullstack-fde | SpruceID, Full-Stack SWE (New Grad) | 91 | 5.4 min, $1.67 |
+| ml-engineer | Quora, MLE New Grad | 88 (scorer bugs; ~95 estimated by the session, not measured) | 4.4 min, $1.56 |
+| data | Solace Health, Data Scientist | 78 (ARIMA/Prophet, statsmodels, Snowflake, dbt, Airflow, MLflow unconfirmed) | 4.7 min, $1.57 |
+
+**Review of the variants:**
+- All 1 page.
+- Every term not in the master was checked against the fact base or the repos: Tailwind, Vite,
+  WCAG/ARIA (Portfolio), VPC/Jaeger/RBAC (OpsPilot Terraform/tracing), "post-incident report"
+  (OpsPilot README and `compose_report`), xarray (forecasting repo). Nothing fabricated.
+- Two archetype leftovers fixed by hand: infra's header "relocating to Redwood City, CA" and data's PDF
+  subject "Data Scientist - Solace Health".
+
+**Fit backfill:**
+- 1,745 jobs. ai-engineer was best for 1,079, ml-engineer 436, swe-backend 111, fullstack-fde 91,
+  data 15, infra 12.
+- swe-backend generalized poorly (B-020). Rebuilding it against 4 combined SWE postings first hit the
+  usage limit, then battery sleep (B-022), then the 30-min timeout: the untrimmed 19.7K-char archetype
+  spent 16 min before its first write. It succeeded with the role and requirement sections only (10K
+  chars, `--timeout 3600`).
+- After the rebuild, `screen --all` took 1 min 43 s for 1,779 jobs. Winners: ai-engineer 789,
+  **swe-backend 546 (was 122)**, ml-engineer 368, fullstack-fde 53, infra 13, data 10. On plain
+  "Software Engineer" titles: ai-engineer 246, swe-backend 167 (was 3 of 40 in the sample).
 
 ---
 

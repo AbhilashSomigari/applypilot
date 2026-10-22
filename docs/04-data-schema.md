@@ -125,6 +125,8 @@ Index: `boards_due (next_poll) WHERE tier NOT IN ('dead','blocked')`.
 | `everify` | INTEGER 0/1, null | Description mentions E-Verify |
 | `flags` | TEXT (JSON list), null | Soft knockouts: `3+ years required`, `PhD required`, `contract (C2C/1099)`, `clearance preferred`, `citizenship preferred`, `export-control mention` |
 | `screened_at` | REAL, null | When `rank.screen` last ran. A hard drop sets `relevant=0` and `reason='hard drop: …'`. |
+| `fit`, `variant` | REAL / TEXT, null | Best pre-built resume variant for this JD and its ATS score (`fit.py`); null until variants exist |
+| `tailored_pdf`, `tailored_score` | TEXT / REAL, null | A resume tailored to this job by `applypilot tailor` and its final ATS score |
 | `raw` | TEXT (JSON) | ATS payload minus bulky HTML; for feed jobs, the feed row (Simplify: sponsorship, degrees, category) |
 
 Indexes: `jobs_board (ats, slug) WHERE closed_at IS NULL` and `jobs_new (detected_at) WHERE relevant = 1`.
@@ -235,6 +237,9 @@ interview → offer | rejected`.
 | `feeds.jsearch.monthly_requests` | 200 | The plan's quota; pacing uses 90% of it |
 | `feeds.jsearch.num_pages` / `country` / `employment_types` / `min_interval` | 1 / `us` / `FULLTIME` / 900 | Search parameters and the fastest allowed pace |
 | `feeds.gmail` / `feeds.gmail_interval` | `true` / 120 | Job-alert email feeds (active only once `gmail login` has run) |
+| `tailor.resume_dir` | `~/Documents/Resume` | Master resume, its `CLAUDE.md` fact base, `variants/`, `tailored/` |
+| `tailor.scorer` | `~/.claude/skills/resumetailor/scripts/ats_score.py` | Imported for fit scoring |
+| `tailor.claude_bin` / `timeout_s` / `parallel` | `claude` / 1800 / 2 | Headless tailoring sessions |
 | `feeds.gmail_testing` | `true` | The Google Cloud app is in Testing (7-day sign-in): push a reminder on day 6. Set `false` after publishing to production. |
 
 ### `~/.applypilot/profile.yaml` and `answers.yaml`
@@ -258,6 +263,15 @@ Copied from `profile/*.example.yaml` by `init`; the personal copies are never co
 Email feeds' `feeds.cursor` is `{"since": <epoch s>, "seen": [message ids]}`: the next search is `after:since`
 (5 min overlap), and messages already parsed inside the overlap are skipped. `feed_items.item_id` is
 `<message id>:<card index>`.
+
+### Resume files (outside the repo, in `tailor.resume_dir`)
+| Path | Contents |
+|---|---|
+| `variants/<name>/jd.txt` | The archetype JD (title, company, URL, description) the variant is tailored to |
+| `variants/<name>/<master pdf name>` + `.tex` | The variant resume (same file name as the master, as recruiters see it) |
+| `variants/<name>/report.md`, `final_score.txt` | The skill's report (changes, gaps, knockouts, unconfirmed tools) and final ATS score |
+| `variants/<name>/batch_result.json` | ApplyPilot's record of the run: score, PDF, knockouts, unconfirmed tools, cost, seconds, error |
+| `tailored/<company>-<title>/…` | The same, for `applypilot tailor JOB_ID` |
 
 ### Logs
 - `~/.applypilot/poller.log`: Python logging (poll and feed warnings; httpx only at WARNING). Rotates

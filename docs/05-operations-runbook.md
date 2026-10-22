@@ -115,6 +115,21 @@ New jobs are screened automatically before the push. After editing `filters.py`,
 `uv run pytest tests/test_filters.py` (the 73-excerpt labeled set must stay at 100% recall and 0 false
 drops), then `screen --all` and `agent install`.
 
+## 5.3c Resume variants and tailoring
+```bash
+uv run applypilot variants list                          # archetype JD, score and PDF per variant
+caffeinate -i uv run applypilot variants build           # all 6 (2 at a time; ~10-25 min each; uses Claude usage)
+caffeinate -i uv run applypilot variants build --only ml-engineer --timeout 3600   # long archetypes need more time
+uv run applypilot screen --all                           # re-score every job with fit, once variants exist
+uv run applypilot tailor <job id>                        # a resume for one job → Resume/tailored/<company>-<title>/
+```
+The archetype JDs are real postings saved in `Resume/variants/<name>/jd.txt`; replace one to retarget
+that variant, then rebuild it. A variant meant for a whole family works better from **several**
+postings' role and requirement sections (swe-backend uses four; see B-020). Keep it near 10K characters.
+Build on AC power with the lid open: lid-closed battery sleep kills the session (B-022). Each run's `report.md` lists **unconfirmed tools**: the batch run never
+adds them. Confirm them in an interactive `/resumetailor` session (which records them in the resume
+`CLAUDE.md`), then rebuild.
+
 ## 5.4 Background agent (launchd)
 ```bash
 uv run applypilot agent install     # writes ~/Library/LaunchAgents/com.applypilot.poller.plist and loads it

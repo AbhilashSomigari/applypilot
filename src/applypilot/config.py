@@ -69,12 +69,26 @@ class Feeds(BaseModel):
     gmail_testing: bool = True
 
 
+class Tailor(BaseModel):
+    """Resume variants and headless tailoring through Claude Code's /resumetailor skill."""
+
+    resume_dir: str = "~/Documents/Resume"  # holds the master, CLAUDE.md fact base, variants/ and tailored/
+    scorer: str = "~/.claude/skills/resumetailor/scripts/ats_score.py"
+    claude_bin: str = "claude"
+    timeout_s: int = 1800
+    parallel: int = 2  # concurrent claude -p sessions
+    # local repo copies the skill's repo sweep reads for verified results (outside resume_dir, so granted with
+    # --add-dir); personal paths belong in ~/.applypilot/config.yaml
+    repo_dirs: list[str] = Field(default_factory=list)
+
+
 class Settings(BaseModel):
     ntfy_topic: str = ""
     ntfy_server: str = "https://ntfy.sh"
     mac_notifications: bool = True
     tiers: Tiers = Field(default_factory=Tiers)
     feeds: Feeds = Field(default_factory=Feeds)
+    tailor: Tailor = Field(default_factory=Tailor)
     max_concurrency: int = 24
     per_host_concurrency: int = 6
     timeout_s: float = 20.0
